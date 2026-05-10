@@ -28,10 +28,12 @@
   "domain": "credit_advisor",
   "name": "Credit Card Advisor",
   "version": "1.0.0",
-  "requirements": ["aiohttp"],
+  "documentation": "https://github.com/Dev-Time/credit-advisor",
+  "requirements": [],
   "dependencies": [],
-  "codeowners": [],
+  "codeowners": ["Dev-Time"],
   "config_flow": false,
+  "integration_type": "service",
   "iot_class": "cloud_polling"
 }
 ```

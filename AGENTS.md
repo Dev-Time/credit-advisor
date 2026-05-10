@@ -36,13 +36,75 @@ custom_components/credit_advisor/
 - **Makefile** targets: `make lint`, `make format`, `make check`, `make fix`
 - **Pre-commit** hooks run on commit: ruff --fix, ruff-format, check-yaml, trailing-whitespace, end-of-file-fixer
 
-### Style
-- Line length: 100
-- Quotes: double quotes (PEP 8 with ruff default)
-- Imports: standard library → third-party → custom_components (isort managed by ruff)
-- Logging: always via `_LOGGER` (module-level logger), never `print()`
-- Type hints: required for all function signatures (HA convention)
-- No stub files or type comments — inline annotations only
+### Style (per HA Developer Docs)
+- **Line length:** 100
+- **Quotes:** double quotes (ruff default)
+- **Imports:** standard library → third-party → custom_components (isort via ruff)
+- **Type hints:** required for all function signatures
+- **No stubs or type comments** — inline annotations only
+- **Comments:** full sentences ending with period
+- **Constants:** alphabetical order within lists and dicts
+- **f-strings:** PREFERRED for all string formatting — EXCEPT logging (see below)
+
+### Logging (HA-specific conventions)
+- Always via module-level `_LOGGER`, never `print()`
+- Use **%-formatting** (NOT f-strings) — avoids formatting when log is suppressed
+  ```python
+  # CORRECT for logging:
+  _LOGGER.warning("Could not reach API: %s", err)
+
+  # WRONG for logging:
+  _LOGGER.warning(f"Could not reach API: {err}")
+  ```
+- **No period at end** of log messages (like syslog)
+- **Don't add component name** — HA prepends it automatically
+- `_LOGGER.error` / `_LOGGER.warning` for user-visible issues
+- `_LOGGER.debug` for everything else — be restrictive with `info`
+- Never log API keys, tokens, usernames, or passwords (even when wrong)
+
+### Docstrings (Google style)
+Per HA convention, follow [Google style](https://google.github.io/styleguide/pyguide.html) for docstrings with parameters/returns/exceptions:
+```python
+def some_method(self, param1: str, param2: str) -> int:
+    """Example Google-style docstring.
+
+    Args:
+        param1: The first parameter.
+        param2: The second parameter.
+
+    Returns:
+        An integer result.
+
+    Raises:
+        KeyError: If the key doesn't exist.
+    """
+    return 0
+```
+
+### Sensor Design (HA best practices)
+- Derive from `homeassistant.components.sensor.SensorEntity`
+- Properties must return from memory — NO I/O in property accessors
+- **Do NOT use `extra_state_attributes` for values that change** — they bloat the DB
+- Instead, create separate sensor entities for each value
+- Use `SensorDeviceClass.MONETARY` for dollar amounts, `SensorDeviceClass.DATE` for dates
+- The response sensor (`sensor.credit_advisor_response`) is a text sensor — no device class
+
+### Config Validation (Voluptuous)
+All configuration.yaml validation MUST use `voluptuous` via `homeassistant.helpers.config_validation as cv`:
+```python
+import voluptuous as vol
+from homeassistant.helpers import config_validation as cv
+
+CONFIG_SCHEMA = vol.Schema({
+    DOMAIN: vol.Schema({
+        vol.Required(CONF_API_KEY): cv.string,
+        vol.Optional(CONF_MODEL, default=DEFAULT_MODEL): cv.string,
+    })
+}, extra=vol.ALLOW_EXTRA)
+```
+- Default parameters go in the schema, NOT in setup()
+- Use constants from `homeassistant.const` where possible
+- Only add new constants to component-level `const.py` if widely used otherwise
 
 ### File Conventions
 - All custom component files live under `custom_components/credit_advisor/`
@@ -81,10 +143,21 @@ Register services via `hass.services.async_register`:
 - Malformed LLM JSON response → log error, return None
 - Always log errors with `_LOGGER.error` at point of failure
 
-### Testing
-- No test framework for MVP (manual testing via HA logs)
-- Phase 2+: pytest with pytest-homeassistant-custom-component
-- Benefit math should be verifiable by inspection
+### Testing (Phase 2+)
+When adding tests, follow the official HA custom component testing pattern:
+- Use `pytest` with `pytest-homeassistant-custom-component`
+- Required fixtures: `enable_custom_integrations` (loads from custom_components/)
+- Required config: `asyncio_mode = auto` in `pyproject.toml` under `[tool.pytest.ini_options]`
+- Import HA test helpers from `pytest_homeassistant_custom_component.common` (not `tests.common`)
+- Use syrupy snapshots for sensor state testing via `HomeAssistantSnapshotExtension`
+- Test structure:
+  ```
+  tests/
+  ├── conftest.py          # fixture definitions
+  ├── test_init.py         # component setup
+  ├── test_sensor.py       # sensor state tests
+  └── snapshots/           # syrupy snapshot files
+  ```
 
 ## Implementation Order (MVP)
 
