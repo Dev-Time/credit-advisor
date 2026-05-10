@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "ha-credit-advisor"
+version = "1.0.0"
+description = "Home Assistant custom component for credit card purchase optimization and benefit tracking"
+requires-python = ">=3.12"
+
+[tool.ruff]
+# Target HA's Python version
+target-version = "py312"
+line-length = 100
+
+# Exclude test artifacts and generated code
+exclude = [
+    ".git",
+    "__pycache__",
+    "*.egg-info",
+    ".venv",
+    "venv",
+    ".jules",
+    "output",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes (catches undefined names, unused imports, etc.)
+    "I",   # isort (import ordering)
+    "N",   # pep8-naming (PEP8 naming conventions)
+    "UP",  # pyupgrade (modern Python idioms — targets 3.12+)
+    "B",   # bugbear (catches common bugs: mutable defaults, etc.)
+    "SIM", # flake8-simplify (simplify redundant expressions)
+    "LOG", # flake8-logging (proper logging practices)
+    "PIE", # flake8-pie (useless constructs: noqa without codes, etc.)
+    "T20", # flake8-print (catch stray print() calls)
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501",   # handled by ruff format
+    "E741",   # ambiguous variable name — sometimes "i" is fine
+    "N818",   # exception name suffix — HA uses "Error" not "Exception"
+    "UP038",  # isinstance() with non-tuple — style preference
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["T20"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+[tool.ruff.lint.flake8-logging]
+# Prefer structured logging via _LOGGER
+format-style = "new"

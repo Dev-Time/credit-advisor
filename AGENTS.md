@@ -30,6 +30,20 @@ custom_components/credit_advisor/
 
 ## Development Rules
 
+### Required Tooling
+- **Ruff** (v0.11.6) — all linting and formatting. NO other formatters/linters.
+- **uv** — for virtualenv and dependency management.
+- **Makefile** targets: `make lint`, `make format`, `make check`, `make fix`
+- **Pre-commit** hooks run on commit: ruff --fix, ruff-format, check-yaml, trailing-whitespace, end-of-file-fixer
+
+### Style
+- Line length: 100
+- Quotes: double quotes (PEP 8 with ruff default)
+- Imports: standard library → third-party → custom_components (isort managed by ruff)
+- Logging: always via `_LOGGER` (module-level logger), never `print()`
+- Type hints: required for all function signatures (HA convention)
+- No stub files or type comments — inline annotations only
+
 ### File Conventions
 - All custom component files live under `custom_components/credit_advisor/`
 - Card YAML files go in `[HA_CONFIG]/credit_advisor/cards/`

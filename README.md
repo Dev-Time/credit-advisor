@@ -24,6 +24,22 @@ Home Assistant custom component (`custom_components/credit_advisor/`) with:
 - **Sensors** — Benefit expiry, usage, and annual value state tracking
 - **Lovelace Dashboard** — Native HA cards (input_text + markdown) for the query interface
 
+## Development
+
+```bash
+# Setup
+make install          # create venv + install dev deps + pre-commit hooks
+
+# Quality
+make lint             # run ruff linter (read-only)
+make format           # auto-format all Python files
+make check            # lint + format-check (CI equivalent)
+make fix              # auto-fix lint issues + format in one pass
+make pre-commit       # run all pre-commit hooks on every file
+```
+
+All linting and formatting uses **[Ruff](https://docs.astral.sh/ruff/)** — configured in `pyproject.toml`. CI enforces on every push/PR via `.github/workflows/lint.yml`.
+
 ## Usage (MVP)
 
 1. Add your cards via `credit_advisor.add_card` service
