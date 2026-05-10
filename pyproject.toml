@@ -52,7 +52,3 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = ["custom_components"]
 section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
-
-[tool.ruff.lint.flake8-logging]
-# Prefer structured logging via _LOGGER
-format-style = "new"

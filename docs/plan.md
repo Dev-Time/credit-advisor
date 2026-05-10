@@ -554,7 +554,7 @@ async def async_setup_platform(
 
 class CreditResponseSensor(SensorEntity):
     """Sensor that holds the last LLM query response.
-    
+
     Updated by automation calling credit_advisor.query service.
     Displayed in Lovelace via a markdown card.
     """

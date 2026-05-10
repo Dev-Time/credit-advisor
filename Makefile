@@ -1,15 +1,21 @@
 .PHONY: default install lint format check fix ci-format ci-lint clean
 
 PYTHON ?= python3
+VENV_BIN ?= .venv/bin
+RUFF ?= $(VENV_BIN)/ruff
+PRECOMMIT ?= $(VENV_BIN)/pre-commit
+UV_LINK_MODE ?= copy
+
+export UV_LINK_MODE
 
 default: install
 
 ## Setup ########################################################################
 
 install:  ## Create virtualenv and install dev dependencies
-	uv venv
+	test -d .venv || uv venv
 	uv pip install -r requirements-dev.txt
-	pre-commit install
+	test -f .git/hooks/pre-commit || $(PRECOMMIT) install
 
 venv:  ## Create virtualenv only
 	uv venv
@@ -17,30 +23,30 @@ venv:  ## Create virtualenv only
 ## Quality ######################################################################
 
 lint:  ## Run ruff linter (read-only)
-	ruff check .
+	$(RUFF) check .
 
 format:  ## Format all Python files in place
-	ruff format .
+	$(RUFF) format .
 
 check: lint format-check  ## Full quality check (no write)
 
 fix:  ## Auto-fix all lint issues + format in place
-	ruff check --fix .
-	ruff format .
+	$(RUFF) check --fix .
+	$(RUFF) format .
 
 format-check:  ## Verify formatting (CI use)
-	ruff format --check .
+	$(RUFF) format --check .
 
 pre-commit:  ## Run all pre-commit hooks on all files
-	pre-commit run --all-files
+	$(PRECOMMIT) run --all-files
 
 ## CI ###########################################################################
 
 ci-lint:  ## CI: lint with sarif output
-	ruff check --output-format sarif .
+	$(RUFF) check --output-format sarif .
 
 ci-format:  ## CI: check formatting
-	ruff format --check .
+	$(RUFF) format --check .
 
 ## Cleanup ######################################################################
 

@@ -17,12 +17,4 @@ repos:
         args: [--fix=lf]
       - id: check-json
         files: \.json$
-
-  - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.33.0
-    hooks:
-      # Verify manifest.json conforms to HA/HACS schema.
-      # Manual stage because HACS schema is stricter than HA's.
-      - id: check-hacs-manifest
-        files: custom_components/.*/manifest\.json$
-        stages: [manual]
+      - id: check-added-large-files
