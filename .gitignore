@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# HA-specific — ignore personal card data
+# (track example.yaml or templates only)
+credit_advisor/cards/*.yaml
+!credit_advisor/cards/example.yaml
+credit_advisor/benefits/
+credit_advisor/history/
+
+# Jules artifacts
+.jules/
+
+# Output
+/output/
