@@ -19,21 +19,25 @@ A Home Assistant-native credit card advisor platform that helps users decide whi
 
 ## Architecture
 
-Home Assistant provides the server, automation engine, push notifications, location zones, and dashboard. A custom HA integration (`credit_advisor`) provides the credit intelligence layer. The LLM (via OpenRouter) handles benefit parsing, purchase recommendations, and periodic refresh checks.
+Home Assistant provides the server, automation engine, push notifications, location zones, and dashboard. A custom HA integration (`credit_advisor`) provides the credit intelligence layer. **LLM calls are delegated to HA's built-in `ai_task.generate_data` service** (backed by OpenRouter) — no custom HTTP client or API keys needed in our component.
 
 ```
 Lovelace Dashboard (input_text + markdown) ──┐
                                              │ call service
                                              ▼
   credit_advisor (custom_component/credit_advisor/)
-    ├── __init__.py         → service definitions, setup
-    ├── config_flow.py      → (future) UI-based card management
-    ├── const.py            → domain, attributes, defaults
+    ├── __init__.py         → service definitions, setup (calls ai_task.generate_data)
+    ├── const.py            → domain, attributes
     ├── card_registry.py    → card CRUD, YAML I/O
     ├── benefit_tracker.py  → usage tracking, expiry calc, annual rollup
-    ├── llm_client.py       → OpenRouter calls, prompt building
     ├── sensors.py          → benefit expiring, unused, annual value
-    └── intent.py           → conversation intent for HA chat
+    └── ───────────────────────────────────────
+                        │
+                        ▼
+          ai_task.generate_data (HA built-in)
+              │ routes through OpenRouter
+              ▼
+          OpenRouter API (configured in HA UI)
 ```
 
 **Storage** (`[ha_config]/credit_advisor/`):
@@ -162,16 +166,16 @@ Resets on each card's annual fee date, not calendar year.
 
 ## Auto-Refresh
 
-Weekly automation calls `credit_advisor.refresh_benefits` which queries the LLM: "Has anything changed for this card's benefits?" Results in a notification if changes are detected; user reviews and confirms before updates are applied.
+Weekly automation calls `credit_advisor.refresh_benefits` which calls `ai_task.generate_data` with: "Has anything changed for this card's benefits?" Results in a notification if changes are detected; user reviews and confirms before updates are applied.
 
 ---
 
 ## Error Handling
 
-1. **LLM unavailable** → fallback to static rewards comparison (exact category match, highest multiplier wins)
-2. **No cards stored** → prompt user to add cards; or LLM can answer from general knowledge
-3. **Ambiguous merchants** → LLM flags ambiguity rather than guessing
-4. **Timed-out API calls** → 15s timeout, retry once, then fallback
+1. **`ai_task` not configured** → prompt user to set up OpenRouter in HA UI (Settings → Devices & services → Add integration → OpenRouter)
+2. **No cards stored** → prompt user to add cards via `credit_advisor.add_card`
+3. **`ai_task` call fails** → log warning, return friendly message, never crash
+4. **No `after_dependencies` met** → HA will delay loading our component until `ai_task` and `open_router` are available
 
 ---
 

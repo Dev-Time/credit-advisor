@@ -2,13 +2,19 @@
 
 > **For Hermes:** Use subagent-driven-development skill to implement this plan task-by-task.
 
-**Goal:** Build the MVP query engine — a Home Assistant custom component that answers "which card should I use for this purchase?" via a Lovelace dashboard.
+**Architecture:** HA custom component (`custom_components/credit_advisor/`) with a YAML-based card registry, integration with HA's built-in `ai_task.generate_data` service (no custom LLM client), and two services (query, add_card). Lovelace uses native cards (input_text + markdown) — no custom JS.
 
-**Architecture:** HA custom component (`custom_components/credit_advisor/`) with a YAML-based card registry, OpenRouter-powered LLM client, and two services (query, add_card). Lovelace uses native cards (input_text + markdown) — no custom JS.
-
-**Tech Stack:** Home Assistant (2024.12+), Python 3.12, OpenRouter REST API (any model), YAML storage.
+**Tech Stack:** Home Assistant (2025.8+), Python 3.12, HA `ai_task` integration (routes through OpenRouter), YAML storage.
 
 **HA Config Path:** Replace `[HA_CONFIG]` in all file paths with your HA config directory (e.g. `/config`, `/home/homeassistant/.homeassistant/`).
+
+**Notes:**
+- No API keys or HTTP clients in our component — all LLM calls go through `ai_task.generate_data`
+- User configures OpenRouter once through the HA UI (not our component)
+- No `llm_client.py` file — the query service calls HA's service bus directly
+- manifest.json uses `"after_dependencies": ["ai_task", "open_router"]` to ensure these are loaded first
+
+> **Important — September 2025 Migration:** This plan was originally written when we planned to build a custom LLM client. We now use HA's built-in `ai_task.generate_data` service instead. The detailed code blocks below are illustrative of structure but **ignore all code that references `llm_client.py`, OpenRouter API keys, `aiohttp` HTTP calls, or custom `LLMClient` classes.** The query and add-card services should call `hass.services.async_call("ai_task", "generate_data", ...)` with a `structure` parameter for structured output, not a custom HTTP client. The manifest includes `after_dependencies: ["ai_task", "open_router"]` so these are available.
 
 ---
 
@@ -30,6 +36,7 @@
   "version": "1.0.0",
   "documentation": "https://github.com/Dev-Time/credit-advisor",
   "requirements": [],
+  "after_dependencies": ["ai_task", "open_router"],
   "dependencies": [],
   "codeowners": ["Dev-Time"],
   "config_flow": false,
