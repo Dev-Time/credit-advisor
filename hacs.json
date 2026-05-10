@@ -1,0 +1,8 @@
+{
+  "name": "Credit Card Advisor",
+  "content_in_root": false,
+  "render_readme": true,
+  "hacs": "1.6.0",
+  "homeassistant": "2024.12.0",
+  "country": ["US"]
+}
