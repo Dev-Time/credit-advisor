@@ -2,6 +2,14 @@
 
 This file provides context for AI coding agents (Jules) working on this project.
 
+## Environment Constraints
+
+- **HA Installation Type:** HA Core (no Supervisor)
+  - **No add-ons** — everything runs inside the HA Python process or as standalone services
+  - **No HACS Supervisor integration** — HACS can still be installed manually on HA Core
+  - **Phase 4 scraper** must run as a standalone Docker container or systemd service, not as a Supervisor add-on
+  - Custom component communicates with external services via HTTP (standard integration pattern)
+
 ## Project Overview
 
 A Home Assistant custom component (`custom_components/credit_advisor/`) that helps users decide which credit card to use for purchases and track benefit usage. Privacy-first — all data stored locally on the user's HA instance.
