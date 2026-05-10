@@ -16,11 +16,11 @@ A Home Assistant custom component (`custom_components/credit_advisor/`) that hel
 
 ## Tech Stack
 
-- **Platform:** Home Assistant (2024.12+, Python 3.12)
+- **Platform:** Home Assistant (2025.8+, Python 3.12)
 - **Storage:** YAML files in `[HA_CONFIG]/credit_advisor/`
-- **LLM:** OpenRouter REST API (configurable model)
+- **LLM:** HA `ai_task` integration (routes through OpenRouter, configured once in HA UI)
 - **Frontend:** Native Lovelace cards (no custom JS for MVP)
-- **HTTP:** aiohttp (HA-native async HTTP)
+- **HTTP:** HA service bus (no direct HTTP calls needed)
 - **No external databases, ORMs, or frameworks**
 
 ## Architecture
@@ -32,7 +32,6 @@ custom_components/credit_advisor/
 ├── manifest.json     → HA manifest (version, requirements)
 ├── card_registry.py  → Card CRUD, YAML I/O
 ├── benefit_tracker.py → Usage tracking, expiry calc, annual rollup
-├── llm_client.py     → OpenRouter calls, prompt building
 ├── sensors.py        → Sensor entities for dashboard/automations
 ```
 
@@ -104,10 +103,7 @@ import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
 CONFIG_SCHEMA = vol.Schema({
-    DOMAIN: vol.Schema({
-        vol.Required(CONF_API_KEY): cv.string,
-        vol.Optional(CONF_MODEL, default=DEFAULT_MODEL): cv.string,
-    })
+    DOMAIN: vol.Schema({})
 }, extra=vol.ALLOW_EXTRA)
 ```
 - Default parameters go in the schema, NOT in setup()
@@ -119,12 +115,11 @@ CONFIG_SCHEMA = vol.Schema({
 - Card YAML files go in `[HA_CONFIG]/credit_advisor/cards/`
 - Benefit usage YAML goes in `[HA_CONFIG]/credit_advisor/benefits/`
 - Use `yaml.safe_dump` with `default_flow_style=False, sort_keys=False`
-- Use `aiohttp` for all HTTP calls (HA-native)
 
 ### Service API
 Register services via `hass.services.async_register`:
-- `credit_advisor.query` — takes `text` string, returns LLM recommendation
-- `credit_advisor.add_card` — takes `card_name` string, researches via LLM, saves YAML
+- `credit_advisor.query` — takes `text` string, calls `ai_task.generate_data` with card context and structured output, returns recommendation
+- `credit_advisor.add_card` — takes `card_name` string, calls `ai_task.generate_data` to research card, saves YAML
 - `credit_advisor.log_benefit_usage` — (Phase 2) logs benefit period usage
 - `credit_advisor.refresh_benefits` — (Phase 2) weekly LLM check for benefit changes
 
@@ -132,12 +127,15 @@ Register services via `hass.services.async_register`:
 - Expose `sensor.credit_advisor_response` for the LLM query result
 - Phase 2: `sensor.credit_benefit_expiring`, `sensor.credit_benefit_unused`, `sensor.credit_annual_value_*`, `binary_sensor.credit_enrollment_needed`
 
-### LLM Prompting
-- Temperature: 0.3 for consistency
-- System prompt: "You are a credit card advisor assistant..."
-- Always request structured JSON output for card research
-- For purchase queries, include current benefit balances in context
-- Timeout: 30 seconds via aiohttp
+### AI Task Integration
+- No custom LLM client — use HA's built-in `ai_task.generate_data` service
+- Build structured prompt with card context (rewards, benefit balances) + user query
+- Use `hass.services.async_call("ai_task", "generate_data", ...)` with `blocking=True, return_response=True`
+- Submit a `structure` parameter defining the expected output fields (recommended_card, reason, multiplier, alternatives, credit_flagged, warnings)
+- For card research, submit structure with card_data field
+- The user configures OpenRouter once in HA UI — no API key or model needed in our component
+- Our manifest declares `"after_dependencies": ["ai_task", "open_router"]` so these are loaded first
+- To handle the case where ai_task is not configured, wrap the call in try/except and return a friendly message
 
 ### Naming
 - Card IDs: snake_case slug from card name (e.g. `amex_gold`)
@@ -146,10 +144,9 @@ Register services via `hass.services.async_register`:
 - Service names: lowercase_with_underscores
 
 ### Error Handling
-- LLM timeout/unavailable → fallback to static rewards comparison
+- `ai_task.generate_data` unavailable (not configured) → friendly prompt to set up OpenRouter in HA UI
 - No cards stored → friendly prompt to add cards
-- Malformed LLM JSON response → log error, return None
-- Always log errors with `_LOGGER.error` at point of failure
+- In both cases, log a warning and return a human-readable message, never crash
 
 ### Testing (Phase 2+)
 When adding tests, follow the official HA custom component testing pattern:
@@ -169,9 +166,9 @@ When adding tests, follow the official HA custom component testing pattern:
 
 ## Implementation Order (MVP)
 
-1. Component skeleton (manifest, const, __init__.py)
+1. Component skeleton (manifest, const, __init__.py) — Voluptuous schema needs only `openrouter_api_key` removed; config is minimal (domain registration only)
 2. Card registry (YAML I/O, card CRUD)
-3. LLM client (OpenRouter API, prompt building)
+3. Query + add-card services (calls `ai_task.generate_data` instead of a custom LLM client)
 4. Sensor platform (response sensor for dashboard)
 5. Lovelace dashboard configuration (input_text, button, markdown)
 
