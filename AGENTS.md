@@ -1,6 +1,6 @@
 # Credit Card Advisor — AGENTS.md
 
-This file provides context for AI coding agents (Jules) working on this project.
+This file provides context for AI coding agents working on this project.
 
 ## Environment Constraints
 
