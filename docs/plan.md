@@ -34,6 +34,7 @@ True constants only — things that define a stable contract across files:
 DOMAIN = "credit_advisor"
 SERVICE_QUERY = "query"
 SERVICE_ADD_CARD = "add_card"
+SERVICE_REMOVE_CARD = "remove_card"
 ```
 
 No setup-time variables (STORAGE_DIR is a local in async_setup_entry), no ATTR_* keys (inline at the handler), no forward declarations for future phases.
@@ -85,7 +86,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN, SERVICE_QUERY, SERVICE_ADD_CARD
+from .const import DOMAIN, SERVICE_QUERY, SERVICE_ADD_CARD, SERVICE_REMOVE_CARD
 from .card_registry import CardRegistry
 
 _LOGGER = logging.getLogger(__name__)
@@ -119,12 +120,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         data = hass.data[DOMAIN]
         return await _async_add_card(hass, data, card_name)
 
+    async def handle_remove_card(call: ServiceCall) -> ServiceResponse:
+        """Handle credit_advisor.remove_card service call."""
+        card_name: str = call.data["card_name"]
+        data = hass.data[DOMAIN]
+        return await _async_remove_card(data, card_name)
+
     hass.services.async_register(
         DOMAIN, SERVICE_QUERY, handle_query,
         schema=vol.Schema({vol.Required("text"): cv.string})
     )
     hass.services.async_register(
         DOMAIN, SERVICE_ADD_CARD, handle_add_card,
+        schema=vol.Schema({vol.Required("card_name"): cv.string})
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_REMOVE_CARD, handle_remove_card,
         schema=vol.Schema({vol.Required("card_name"): cv.string})
     )
 
@@ -135,6 +146,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     hass.services.async_remove(DOMAIN, SERVICE_QUERY)
     hass.services.async_remove(DOMAIN, SERVICE_ADD_CARD)
+    hass.services.async_remove(DOMAIN, SERVICE_REMOVE_CARD)
     hass.data.pop(DOMAIN, None)
     return True
 
@@ -201,6 +213,15 @@ async def _async_add_card(hass: HomeAssistant, data: CreditAdvisorData, card_nam
 
     card_id = data.card_registry.save_card(card_name, result)
     return {"card_id": card_id, "card_yaml": result}
+
+
+async def _async_remove_card(data: CreditAdvisorData, card_name: str) -> dict:
+    """Remove a card from the registry."""
+    card_id = data.card_registry.slugify(card_name)
+    if not data.card_registry.delete_card(card_id):
+        return {"error": f"Card not found: {card_name}"}
+    _LOGGER.info("Removed card: %s (%s)", card_name, card_id)
+    return {"removed": True, "card_id": card_id}
 ```
 
 **Step 4: Verify the component loads in HA**
@@ -245,13 +266,6 @@ import yaml
 _LOGGER = logging.getLogger(__name__)
 
 
-def _slugify(name: str) -> str:
-    """Convert a card name to a safe file ID."""
-    s = name.lower().strip()
-    s = re.sub(r"[^a-z0-9]+", "_", s)
-    return s.strip("_")
-
-
 class CardRegistry:
     """Manages credit card YAML files in a local directory."""
 
@@ -260,6 +274,13 @@ class CardRegistry:
         self._benefits_dir = os.path.join(storage_path, "benefits")
         os.makedirs(self._cards_dir, exist_ok=True)
         os.makedirs(self._benefits_dir, exist_ok=True)
+
+    @staticmethod
+    def slugify(name: str) -> str:
+        """Convert a card name to a safe file ID."""
+        s = name.lower().strip()
+        s = re.sub(r"[^a-z0-9]+", "_", s)
+        return s.strip("_")
 
     def list_cards(self) -> list[str]:
         """Return card IDs of all stored cards."""
@@ -280,7 +301,7 @@ class CardRegistry:
 
     def save_card(self, card_name: str, card_yaml: dict[str, Any]) -> str:
         """Save a card's YAML data. Returns the card ID."""
-        card_id = _slugify(card_name)
+        card_id = self.slugify(card_name)
         # Ensure card has an ID field
         card_yaml["id"] = card_id
         path = self.get_card_path(card_id)

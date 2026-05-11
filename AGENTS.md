@@ -113,7 +113,8 @@ The component uses a config flow — set up via Settings → Devices & services 
 Register services via `hass.services.async_register` — parameter keys are inline strings, not constants:
 - `credit_advisor.query` — takes `text` (string), calls `ai_task.generate_data` with card context and structured output, returns recommendation
 - `credit_advisor.add_card` — takes `card_name` (string), calls `ai_task.generate_data` to research card, saves YAML
-- `credit_advisor.log_benefit_usage` — (Phase 2, event type TBD)
+- `credit_advisor.remove_card` — takes `card_name` (string), looks up card by slug, deletes the YAML file
+- `credit_advisor.log_benefit_usage` — (Phase 2, service name TBD)
 - `credit_advisor.refresh_benefits` — (Phase 2) weekly LLM check for benefit changes
 
 ### Sensor Platform

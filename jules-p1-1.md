@@ -14,7 +14,7 @@ Note: `custom_components/credit_advisor/manifest.json` already exists with `"con
 ### const.py
 True constants only — things that define the stable contract:
 - `DOMAIN = "credit_advisor"`
-- `SERVICE_QUERY = "query"` and `SERVICE_ADD_CARD = "add_card"`
+- `SERVICE_QUERY = "query"`, `SERVICE_ADD_CARD = "add_card"`, and `SERVICE_REMOVE_CARD = "remove_card"`
 No setup-time variables (STORAGE_DIR is a local in async_setup_entry), no ATTR_* keys (inline at the handler), no forward declarations for future phases.
 
 ### config_flow.py
@@ -37,6 +37,7 @@ Standard HA config flow with minimal setup — no user-configurable options for 
 - `load_yaml(card_id: str) -> dict | None` — loads and parses a card, returns None if missing
 - `save_card(card_name: str, card_data: dict) -> str` — saves card data to `{slug}.yaml`, returns card ID. Slugify the card name (lowercase, replace non-alphanumeric chars with underscore)
 - `delete_card(card_id: str) -> bool` — deletes the card file, returns True if deleted
+- `slugify(card_name: str) -> str` — public classmethod, converts a card name to a file-safe ID (same logic as save_card internal slugify)
 - Use `yaml.dump(..., default_flow_style=False, sort_keys=False)` for writing
 - Use `yaml.safe_load` for reading
 - Use module-level `_LOGGER` with %-formatting for logging saves and deletes
@@ -53,7 +54,7 @@ Integration setup via config entry (no CONFIG_SCHEMA or async_setup):
 - `homeassistant.helpers.config_validation` as `cv`
 - `HomeAssistant`, `ServiceCall`, `ServiceResponse`, `ConfigEntry` from `homeassistant.core`
 - `ConfigType` from `homeassistant.helpers.typing`
-- DOMAIN, SERVICE_QUERY, SERVICE_ADD_CARD from `.const`
+- DOMAIN, SERVICE_QUERY, SERVICE_ADD_CARD, SERVICE_REMOVE_CARD from `.const`
 - `CardRegistry` from `.card_registry`
 
 **CreditAdvisorData dataclass:** holds `card_registry: CardRegistry`
@@ -63,11 +64,11 @@ Integration setup via config entry (no CONFIG_SCHEMA or async_setup):
 - `os.makedirs(storage_path, exist_ok=True)`
 - Instantiate `CardRegistry(storage_path)`
 - Store as `hass.data[DOMAIN] = CreditAdvisorData(card_registry=card_registry)`
-- Register two services (see below)
+- Register three services (see below)
 - Return True
 
 **async_unload_entry(hass, entry):**
-- Remove services: `hass.services.async_remove(DOMAIN, SERVICE_QUERY)` and `SERVICE_ADD_CARD`
+- Remove services: `hass.services.async_remove(DOMAIN, SERVICE_QUERY)`, `SERVICE_ADD_CARD`, and `SERVICE_REMOVE_CARD`
 - Clean up: `hass.data.pop(DOMAIN, None)`
 - Return True
 
@@ -85,6 +86,12 @@ Integration setup via config entry (no CONFIG_SCHEMA or async_setup):
 - Return `{"card_id": card_id, "card_yaml": result}` on success
 - Wrap in try/except — return `{"error": msg}` on failure
 
+**`credit_advisor.remove_card` service (takes `card_name` string):**
+- Look up the card ID by slugifying the name
+- Call `card_registry.delete_card(card_id)`
+- Return `{"removed": True, "card_id": card_id}` on success
+- Return `{"error": "Card not found"}` if the card doesn't exist
+
 **Service registration with Voluptuous schemas:**
 ```python
 hass.services.async_register(
@@ -93,6 +100,10 @@ hass.services.async_register(
 )
 hass.services.async_register(
     DOMAIN, SERVICE_ADD_CARD, handle_add_card,
+    schema=vol.Schema({vol.Required("card_name"): cv.string})
+)
+hass.services.async_register(
+    DOMAIN, SERVICE_REMOVE_CARD, handle_remove_card,
     schema=vol.Schema({vol.Required("card_name"): cv.string})
 )
 ```
