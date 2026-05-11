@@ -2,7 +2,7 @@
 
 > **For Hermes:** Use subagent-driven-development skill to implement this plan task-by-task.
 
-**Architecture:** HA custom component (`custom_components/credit_advisor/`) with a YAML-based card registry, integration with HA's built-in `ai_task.generate_data` service (no custom LLM client), and two services (query, add_card). Lovelace uses native cards (input_text + markdown) — no custom JS.
+**Architecture:** HA custom component (`custom_components/credit_advisor/`) with config flow (no configuration.yaml), YAML-based card registry, integration with HA's built-in `ai_task.generate_data` service (no custom LLM client), and two services (query, add_card). Lovelace uses native cards (input_text + markdown) — no custom JS.
 
 **Tech Stack:** Home Assistant (2025.8+), Python 3.12, HA `ai_task` integration (routes through OpenRouter), YAML storage.
 
@@ -20,63 +20,59 @@
 
 ### Task 1: Create Custom Component Skeleton
 
-**Objective:** Scaffold the HA custom component with manifest, constants, and `__init__.py` that registers the domain and services.
+**Objective:** Scaffold the HA custom component with config flow, constants, and `__init__.py` using `async_setup_entry`/`async_unload_entry`.
 
 **Files:**
-- Create: `[HA_CONFIG]/custom_components/credit_advisor/__init__.py`
 - Create: `[HA_CONFIG]/custom_components/credit_advisor/const.py`
-- Create: `[HA_CONFIG]/custom_components/credit_advisor/manifest.json`
+- Create: `[HA_CONFIG]/custom_components/credit_advisor/config_flow.py`
+- Create: `[HA_CONFIG]/custom_components/credit_advisor/__init__.py`
 
-**Step 1: Create `manifest.json`**
+**Step 1: Create `const.py`**
 
-```json
-{
-  "domain": "credit_advisor",
-  "name": "Credit Card Advisor",
-  "version": "1.0.0",
-  "documentation": "https://github.com/Dev-Time/credit-advisor",
-  "requirements": [],
-  "after_dependencies": ["ai_task", "open_router"],
-  "dependencies": [],
-  "codeowners": ["Dev-Time"],
-  "config_flow": false,
-  "integration_type": "service",
-  "iot_class": "cloud_polling"
-}
-```
-
-**Step 2: Create `const.py`**
+True constants only — things that define a stable contract across files:
 
 ```python
 """Constants for the Credit Advisor integration."""
 
 DOMAIN = "credit_advisor"
-CONF_OPENROUTER_API_KEY = "openrouter_api_key"
-CONF_OPENROUTER_MODEL = "openrouter_model"
-CONF_CARDS_DIR = "cards_dir"
-
-DEFAULT_MODEL = "openai/gpt-4o-mini"
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-OPENROUTER_TIMEOUT = 30
-
-STORAGE_DIR = "credit_advisor"
-
-# Service names
 SERVICE_QUERY = "query"
 SERVICE_ADD_CARD = "add_card"
-
-# Attributes
-ATTR_QUERY_TEXT = "text"
-ATTR_CARD_NAME = "card_name"
-ATTR_CARD_YAML = "card_yaml"
-ATTR_RESPONSE = "response"
-ATTR_ERROR = "error"
-
-# Event types
 EVENT_BENEFIT_EXPIRING = "credit_advisor_benefit_expiring"
 ```
 
+No STORAGE_DIR (setup-time local variable), no ATTR_* keys (inline at the handler), no API key/config constants.
+
+**Step 2: Create `config_flow.py`**
+
+Standard HA config flow with a single-step form (no user-configurable options for MVP):
+
+```python
+"""Config flow for Credit Advisor integration."""
+from __future__ import annotations
+
+from homeassistant import config_entries
+import voluptuous as vol
+
+from .const import DOMAIN
+
+
+class CreditAdvisorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Credit Advisor."""
+
+    VERSION = 1
+    MINOR_VERSION = 1
+
+    async def async_step_user(self, user_input=None):
+        """Handle the initial step."""
+        if user_input is not None:
+            return self.async_create_entry(title="Credit Card Advisor", data={})
+
+        return self.async_show_form(step_id="user", data_schema=vol.Schema({}))
+```
+
 **Step 3: Create `__init__.py`**
+
+Setup via config entry — no configuration.yaml, no CONFIG_SCHEMA, no async_setup:
 
 ```python
 """Credit Advisor integration for Home Assistant."""
@@ -89,40 +85,14 @@ from dataclasses import dataclass
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from .const import (
-    DOMAIN,
-    CONF_OPENROUTER_API_KEY,
-    CONF_OPENROUTER_MODEL,
-    DEFAULT_MODEL,
-    STORAGE_DIR,
-    SERVICE_QUERY,
-    SERVICE_ADD_CARD,
-    ATTR_QUERY_TEXT,
-    ATTR_CARD_NAME,
-)
+from .const import DOMAIN, SERVICE_QUERY, SERVICE_ADD_CARD
 from .card_registry import CardRegistry
-from .llm_client import LLMClient
 
 _LOGGER = logging.getLogger(__name__)
-
-PLATFORMS: list[Platform] = []
-
-CONFIG_SCHEMA = vol.Schema(
-    {
-        DOMAIN: vol.Schema(
-            {
-                vol.Required(CONF_OPENROUTER_API_KEY): cv.string,
-                vol.Optional(CONF_OPENROUTER_MODEL, default=DEFAULT_MODEL): cv.string,
-            }
-        )
-    },
-    extra=vol.ALLOW_EXTRA,
-)
 
 
 @dataclass
@@ -130,87 +100,111 @@ class CreditAdvisorData:
     """Runtime data for the integration."""
 
     card_registry: CardRegistry
-    llm_client: LLMClient
 
 
-async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the Credit Advisor integration."""
-    conf = config.get(DOMAIN)
-    if conf is None:
-        # Config via configuration.yaml is required until config_flow
-        _LOGGER.warning("Credit Advisor not configured — add to configuration.yaml")
-        return True
-
-    api_key = conf[CONF_OPENROUTER_API_KEY]
-    model = conf.get(CONF_OPENROUTER_MODEL, DEFAULT_MODEL)
-
-    # Storage directory next to HA config
-    storage_path = hass.config.path(STORAGE_DIR)
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up Credit Advisor from a config entry."""
+    storage_path = hass.config.path(DOMAIN)
     os.makedirs(storage_path, exist_ok=True)
 
     card_registry = CardRegistry(storage_path)
-    llm_client = LLMClient(api_key, model)
-
-    hass.data[DOMAIN] = CreditAdvisorData(
-        card_registry=card_registry,
-        llm_client=llm_client,
-    )
+    hass.data[DOMAIN] = CreditAdvisorData(card_registry=card_registry)
 
     # Register services
     async def handle_query(call: ServiceCall) -> ServiceResponse:
         """Handle credit_advisor.query service call."""
-        query_text: str = call.data[ATTR_QUERY_TEXT]
+        query_text: str = call.data["text"]
         data = hass.data[DOMAIN]
-        return await _async_query(data, query_text)
+        return await _async_query(hass, data, query_text)
 
     async def handle_add_card(call: ServiceCall) -> ServiceResponse:
         """Handle credit_advisor.add_card service call."""
-        card_name: str = call.data[ATTR_CARD_NAME]
+        card_name: str = call.data["card_name"]
         data = hass.data[DOMAIN]
         return await _async_add_card(hass, data, card_name)
 
     hass.services.async_register(
-        DOMAIN, SERVICE_QUERY, handle_query, schema=vol.Schema({
-            vol.Required(ATTR_QUERY_TEXT): cv.string,
-        })
+        DOMAIN, SERVICE_QUERY, handle_query,
+        schema=vol.Schema({vol.Required("text"): cv.string})
     )
-
     hass.services.async_register(
-        DOMAIN, SERVICE_ADD_CARD, handle_add_card, schema=vol.Schema({
-            vol.Required(ATTR_CARD_NAME): cv.string,
-        })
-    )
-
-    # Register sensor platform
-    hass.async_create_task(
-        hass.helpers.discovery.async_load_platform("sensor", DOMAIN, {}, config)
+        DOMAIN, SERVICE_ADD_CARD, handle_add_card,
+        schema=vol.Schema({vol.Required("card_name"): cv.string})
     )
 
     return True
 
 
-async def _async_query(data: CreditAdvisorData, query_text: str) -> dict:
-    """Run a purchase query against the LLM."""
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry."""
+    hass.services.async_remove(DOMAIN, SERVICE_QUERY)
+    hass.services.async_remove(DOMAIN, SERVICE_ADD_CARD)
+    hass.data.pop(DOMAIN, None)
+    return True
+
+
+async def _async_query(hass: HomeAssistant, data: CreditAdvisorData, query_text: str) -> dict:
+    """Run a purchase query via ai_task."""
     cards = data.card_registry.list_cards()
-    card_yamls = [data.card_registry.load_yaml(card_id) for card_id in cards]
+    if not cards:
+        return {"response": "You haven't added any cards yet."}
 
-    response = await data.llm_client.query_purchase(card_yamls, query_text)
+    card_yamls = [data.card_registry.load_yaml(cid) for cid in cards]
 
-    return {
-        "response": response,
-        "card_count": len(cards),
-    }
+    instructions = f"The user has these cards:\n{card_yamls}\n\nPurchase query: {query_text}"
+
+    try:
+        result = await hass.services.async_call(
+            "ai_task", "generate_data",
+            {
+                "task_name": "Credit Card Advisor",
+                "instructions": instructions,
+                "structure": {
+                    "recommended_card": "",
+                    "reason": "",
+                    "multiplier": "",
+                    "alternatives": [],
+                    "credit_flagged": [],
+                    "warnings": [],
+                },
+            },
+            blocking=True,
+            return_response=True,
+        )
+        return {"response": result, "card_count": len(cards)}
+    except Exception:
+        _LOGGER.warning("ai_task call failed for query")
+        return {"response": "OpenRouter is not configured. Set it up in Settings → Devices & services.", "card_count": 0}
 
 
 async def _async_add_card(hass: HomeAssistant, data: CreditAdvisorData, card_name: str) -> dict:
-    """Research a card and save it to the registry."""
-    card_yaml = await data.llm_client.research_card(card_name)
+    """Research a card and save it via ai_task."""
+    try:
+        result = await hass.services.async_call(
+            "ai_task", "generate_data",
+            {
+                "task_name": "Credit Card Research",
+                "instructions": f"Research the credit card \"{card_name}\" and return its benefits and reward structure.",
+                "structure": {
+                    "name": "",
+                    "issuer": "",
+                    "annual_fee": 0,
+                    "benefits": [],
+                    "rewards": {},
+                },
+            },
+            blocking=True,
+            return_response=True,
+        )
+    except Exception:
+        _LOGGER.warning("ai_task call failed for add_card")
+        return {"error": "OpenRouter is not configured. Set it up in Settings → Devices & services."}
 
-    if not card_yaml:
+    if not result:
         return {"error": f"Could not research card: {card_name}"}
 
-    card_id = data.card_registry.save_card(card_name, card_yaml)
-    return {"card_id": card_id, "card_yaml": card_yaml}
+    card_id = data.card_registry.save_card(card_name, result)
+    return {"card_id": card_id, "card_yaml": result}
 ```
 
 **Step 4: Verify the component loads in HA**
@@ -226,7 +220,7 @@ Restart HA and check logs:
 
 ```bash
 git add [HA_CONFIG]/custom_components/credit_advisor/
-git commit -m "feat: add Credit Advisor custom component skeleton"
+git commit -m "feat: add Credit Advisor config flow and services"
 ```
 
 ---

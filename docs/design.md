@@ -26,8 +26,9 @@ Lovelace Dashboard (input_text + markdown) ──┐
                                              │ call service
                                              ▼
   credit_advisor (custom_component/credit_advisor/)
-    ├── __init__.py         → service definitions, setup (calls ai_task.generate_data)
-    ├── const.py            → domain, attributes
+    ├── config_flow.py      → one-step HA UI setup (no options needed)
+    ├── __init__.py         → async_setup_entry, service definitions
+    ├── const.py            → domain, service names, event types only
     ├── card_registry.py    → card CRUD, YAML I/O
     ├── benefit_tracker.py  → usage tracking, expiry calc, annual rollup
     ├── sensors.py          → benefit expiring, unused, annual value
@@ -39,6 +40,8 @@ Lovelace Dashboard (input_text + markdown) ──┐
               ▼
           OpenRouter API (configured in HA UI)
 ```
+
+**No `configuration.yaml` block needed** — users add it via Settings → Devices & services → Add integration → Credit Card Advisor. The config flow creates the entry with no user-configurable options for MVP.
 
 **Storage** (`[ha_config]/credit_advisor/`):
 ```

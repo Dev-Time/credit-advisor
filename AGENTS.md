@@ -27,8 +27,9 @@ A Home Assistant custom component (`custom_components/credit_advisor/`) that hel
 
 ```
 custom_components/credit_advisor/
-├── __init__.py       → Component setup, service registration
-├── const.py          → Constants, domain, attributes
+├── __init__.py       → Setup via config entry, service registration
+├── config_flow.py    → HA UI config flow (one-step, no options)
+├── const.py          → Domain, service names, event types only
 ├── manifest.json     → HA manifest (version, requirements)
 ├── card_registry.py  → Card CRUD, YAML I/O
 ├── benefit_tracker.py → Usage tracking, expiry calc, annual rollup
@@ -96,19 +97,12 @@ def some_method(self, param1: str, param2: str) -> int:
 - Use `SensorDeviceClass.MONETARY` for dollar amounts, `SensorDeviceClass.DATE` for dates
 - The response sensor (`sensor.credit_advisor_response`) is a text sensor — no device class
 
-### Config Validation (Voluptuous)
-All configuration.yaml validation MUST use `voluptuous` via `homeassistant.helpers.config_validation as cv`:
-```python
-import voluptuous as vol
-from homeassistant.helpers import config_validation as cv
-
-CONFIG_SCHEMA = vol.Schema({
-    DOMAIN: vol.Schema({})
-}, extra=vol.ALLOW_EXTRA)
-```
-- Default parameters go in the schema, NOT in setup()
-- Use constants from `homeassistant.const` where possible
-- Only add new constants to component-level `const.py` if widely used otherwise
+### Config Flow (no configuration.yaml)
+The component uses a config flow — no `configuration.yaml` needed:
+- `config_flow.py` with a single-step `async_step_user` (empty form, accepts on confirm)
+- `async_setup_entry` / `async_unload_entry` in `__init__.py`
+- No `CONFIG_SCHEMA` — config flow handles setup
+- Future options (storage path override, etc.) go in `async_step_options` when needed
 
 ### File Conventions
 - All custom component files live under `custom_components/credit_advisor/`
@@ -117,9 +111,9 @@ CONFIG_SCHEMA = vol.Schema({
 - Use `yaml.safe_dump` with `default_flow_style=False, sort_keys=False`
 
 ### Service API
-Register services via `hass.services.async_register`:
-- `credit_advisor.query` — takes `text` string, calls `ai_task.generate_data` with card context and structured output, returns recommendation
-- `credit_advisor.add_card` — takes `card_name` string, calls `ai_task.generate_data` to research card, saves YAML
+Register services via `hass.services.async_register` — parameter keys are inline strings, not constants:
+- `credit_advisor.query` — takes `text` (string), calls `ai_task.generate_data` with card context and structured output, returns recommendation
+- `credit_advisor.add_card` — takes `card_name` (string), calls `ai_task.generate_data` to research card, saves YAML
 - `credit_advisor.log_benefit_usage` — (Phase 2) logs benefit period usage
 - `credit_advisor.refresh_benefits` — (Phase 2) weekly LLM check for benefit changes
 
@@ -166,7 +160,7 @@ When adding tests, follow the official HA custom component testing pattern:
 
 ## Implementation Order (MVP)
 
-1. Component skeleton (manifest, const, __init__.py) — Voluptuous schema needs only `openrouter_api_key` removed; config is minimal (domain registration only)
+1. Component skeleton (config_flow.py, const.py, __init__.py with async_setup_entry/async_unload_entry)
 2. Card registry (YAML I/O, card CRUD)
 3. Query + add-card services (calls `ai_task.generate_data` instead of a custom LLM client)
 4. Sensor platform (response sensor for dashboard)
