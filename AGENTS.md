@@ -172,4 +172,3 @@ Phase 2 (benefit tracking) and Phase 3 (transaction hearing) will be planned sep
 - Branch from `main`
 - Commit messages: `feat(scope): description` or `fix(scope): description`
 - One commit per logical change
-- No code changes without a Jules task — all implementation goes through Jules
