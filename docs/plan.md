@@ -4,8 +4,6 @@
 
 **Tech Stack:** Home Assistant (2025.8+), Python 3.12, `ai_task` integration (provider-agnostic), YAML storage.
 
-**HA Config Path:** Replace `[HA_CONFIG]` in file paths with your HA config directory (e.g. `/config`).
-
 **Notes:**
 - No API keys or HTTP clients in our component — all LLM via `ai_task.generate_data`
 - User configures an LLM provider through HA's AI Task integration
@@ -18,9 +16,9 @@
 **Objective:** Scaffold the HA custom component with config flow, constants, and `__init__.py` using `async_setup_entry`/`async_unload_entry`.
 
 **Files to create:**
-- `[HA_CONFIG]/custom_components/credit_advisor/const.py`
-- `[HA_CONFIG]/custom_components/credit_advisor/config_flow.py`
-- `[HA_CONFIG]/custom_components/credit_advisor/__init__.py`
+- `custom_components/credit_advisor/const.py`
+- `custom_components/credit_advisor/config_flow.py`
+- `custom_components/credit_advisor/__init__.py`
 
 **const.py** — true constants only, things that define the stable contract across files:
 - `DOMAIN`, `SERVICE_QUERY`, `SERVICE_ADD_CARD`, `SERVICE_REMOVE_CARD`
@@ -47,7 +45,7 @@
 **Objective:** Build the `CardRegistry` class that manages card YAML files in a local directory.
 
 **Files to create:**
-- `[HA_CONFIG]/custom_components/credit_advisor/card_registry.py`
+- `custom_components/credit_advisor/card_registry.py`
 
 **CardRegistry** — manages YAML files under `storage_path/cards/`:
 - Constructor takes `storage_path` string, creates `cards/` and `benefits/` subdirectories
@@ -73,8 +71,8 @@ Already implemented in Task 1's `__init__.py`. Both `credit_advisor.query` and `
 **Objective:** Create a sensor entity that holds the last LLM query response, displayed in a Lovelace markdown card.
 
 **Files to create/modify:**
-- Create: `[HA_CONFIG]/custom_components/credit_advisor/sensor.py`
-- Modify: `[HA_CONFIG]/custom_components/credit_advisor/__init__.py`
+- Create: `custom_components/credit_advisor/sensor.py`
+- Modify: `custom_components/credit_advisor/__init__.py`
 
 **Sensor (`sensor.py`):**
 - Uses `async_setup_entry` (not `async_setup_platform`) since the component uses config flow
@@ -90,21 +88,9 @@ Already implemented in Task 1's `__init__.py`. Both `credit_advisor.query` and `
 
 ### Task 5: Configure Lovelace Dashboard
 
-**Objective:** Set up the Lovelace view with input_text, button, and markdown card for the query interface. No `configuration.yaml` modifications needed.
+**Objective:** Set up the Lovelace view with input_text, button, and markdown card for the query interface.
 
 **All done via HA UI:**
-1. Create input helpers (Settings → Helpers): `input_text.credit_query` and `input_button.credit_ask`
-2. Create automation: trigger on `input_button.credit_ask → pressed`, action calls `credit_advisor.query` with `text: {{ states('input_text.credit_query') }}`
-3. Create Lovelace view with: heading card, entities card (showing the two helpers), and a markdown card displaying `sensor.credit_advisor_response`
-
----
-
-## Verification
-
-After installation:
-1. HA starts without errors in the logs
-2. Developer Tools → Services shows `credit_advisor.query`, `.add_card`, `.remove_card`
-3. Adding a card creates a YAML file
-4. Querying returns a card recommendation (or error if AI Task not configured)
-5. Removing a card deletes its YAML file
-6. The Lovelace dashboard shows the query result in the markdown card
+- Create input helpers (Settings → Helpers): `input_text.credit_query` and `input_button.credit_ask`
+- Create automation: trigger on `input_button.credit_ask → pressed`, action calls `credit_advisor.query` with `text: {{ states('input_text.credit_query') }}`
+- Create Lovelace view with: heading card, entities card (showing the two helpers), and a markdown card displaying `sensor.credit_advisor_response`
