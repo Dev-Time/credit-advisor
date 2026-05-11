@@ -43,7 +43,7 @@ Lovelace Dashboard (input_text + markdown) ──┐
 
 **Config flow setup** — users add it via Settings → Devices & services → Add integration → Credit Card Advisor. The config flow creates the entry with no user-configurable options for MVP.
 
-**Storage** (`[ha_config]/credit_advisor/`):
+**Storage** (at `hass.config.path(DOMAIN)`, resolved at setup):
 ```
 cards/            → YAML per card (amex_platinum.yaml, chase_sapphire.yaml)
 benefits/         → usage YAML per benefit per year (uber_cash_2026.yaml)

@@ -17,7 +17,7 @@ A Home Assistant custom component (`custom_components/credit_advisor/`) that hel
 ## Tech Stack
 
 - **Platform:** Home Assistant (2025.8+, Python 3.12)
-- **Storage:** YAML files in `[HA_CONFIG]/credit_advisor/`
+- **Storage:** YAML files in `hass.config.path(DOMAIN)` (resolves to `[HA_CONFIG]/credit_advisor/` at runtime, set in async_setup_entry)
 - **LLM:** HA `ai_task` integration (provider-agnostic, configured once in HA UI)
 - **Frontend:** Native Lovelace cards (no custom JS for MVP)
 - **HTTP:** HA service bus (no direct HTTP calls needed)
@@ -105,8 +105,8 @@ The component uses a config flow — set up via Settings → Devices & services 
 
 ### File Conventions
 - All custom component files live under `custom_components/credit_advisor/`
-- Card YAML files go in `[HA_CONFIG]/credit_advisor/cards/`
-- Benefit usage YAML goes in `[HA_CONFIG]/credit_advisor/benefits/`
+- Card YAML files go in `hass.config.path(DOMAIN)/cards/` (resolved at setup)
+- Benefit usage YAML goes in `hass.config.path(DOMAIN)/benefits/` (Phase 2)
 - Use `yaml.safe_dump` with `default_flow_style=False, sort_keys=False`
 
 ### Service API
