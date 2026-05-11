@@ -20,7 +20,7 @@ Built for personal use first. Privacy-as-a-feature — all card metadata and ben
 Home Assistant custom component (`custom_components/credit_advisor/`) with:
 
 - **Card Registry** — YAML-based local storage for card definitions
-- **LLM Client** — OpenRouter-powered recommendation engine
+- **LLM Client** — `ai_task`-powered recommendation engine
 - **Sensors** — Benefit expiry, usage, and annual value state tracking
 - **Lovelace Dashboard** — Native HA cards (input_text + markdown) for the query interface
 

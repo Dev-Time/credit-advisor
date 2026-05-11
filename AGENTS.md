@@ -18,7 +18,7 @@ A Home Assistant custom component (`custom_components/credit_advisor/`) that hel
 
 - **Platform:** Home Assistant (2025.8+, Python 3.12)
 - **Storage:** YAML files in `[HA_CONFIG]/credit_advisor/`
-- **LLM:** HA `ai_task` integration (routes through OpenRouter, configured once in HA UI)
+- **LLM:** HA `ai_task` integration (provider-agnostic, configured once in HA UI)
 - **Frontend:** Native Lovelace cards (no custom JS for MVP)
 - **HTTP:** HA service bus (no direct HTTP calls needed)
 - **No external databases, ORMs, or frameworks**
@@ -97,11 +97,10 @@ def some_method(self, param1: str, param2: str) -> int:
 - Use `SensorDeviceClass.MONETARY` for dollar amounts, `SensorDeviceClass.DATE` for dates
 - The response sensor (`sensor.credit_advisor_response`) is a text sensor — no device class
 
-### Config Flow (no configuration.yaml)
-The component uses a config flow — no `configuration.yaml` needed:
+### Config Flow
+The component uses a config flow — set up via Settings → Devices & services → Add integration:
 - `config_flow.py` with a single-step `async_step_user` (empty form, accepts on confirm)
-- `async_setup_entry` / `async_unload_entry` in `__init__.py`
-- No `CONFIG_SCHEMA` — config flow handles setup
+- `async_setup_entry` / `async_unload_entry` in `__init__.py` — no CONFIG_SCHEMA or async_setup needed
 - Future options (storage path override, etc.) go in `async_step_options` when needed
 
 ### File Conventions
@@ -127,9 +126,8 @@ Register services via `hass.services.async_register` — parameter keys are inli
 - Use `hass.services.async_call("ai_task", "generate_data", ...)` with `blocking=True, return_response=True`
 - Submit a `structure` parameter defining the expected output fields (recommended_card, reason, multiplier, alternatives, credit_flagged, warnings)
 - For card research, submit structure with card_data field
-- The user configures OpenRouter once in HA UI — no API key or model needed in our component
-- Our manifest declares `"after_dependencies": ["ai_task", "open_router"]` so these are loaded first
-- To handle the case where ai_task is not configured, wrap the call in try/except and return a friendly message
+- Our manifest declares `"after_dependencies": ["ai_task"]` so it's loaded first
+- To handle the case where ai_task is not configured, wrap the call in try/except and return a friendly message with setup instructions
 
 ### Naming
 - Card IDs: snake_case slug from card name (e.g. `amex_gold`)
@@ -138,7 +136,7 @@ Register services via `hass.services.async_register` — parameter keys are inli
 - Service names: lowercase_with_underscores
 
 ### Error Handling
-- `ai_task.generate_data` unavailable (not configured) → friendly prompt to set up OpenRouter in HA UI
+- `ai_task.generate_data` unavailable (not configured) → friendly prompt to configure LLM provider in HA UI
 - No cards stored → friendly prompt to add cards
 - In both cases, log a warning and return a human-readable message, never crash
 

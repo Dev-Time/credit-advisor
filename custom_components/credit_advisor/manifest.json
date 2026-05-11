@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "documentation": "https://github.com/Dev-Time/credit-advisor",
   "requirements": [],
-  "after_dependencies": ["ai_task", "open_router"],
+  "after_dependencies": ["ai_task"],
   "dependencies": [],
   "codeowners": [
     "Dev-Time"

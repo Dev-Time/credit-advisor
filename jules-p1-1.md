@@ -44,7 +44,7 @@ Standard HA config flow with minimal setup — no user-configurable options for 
 - Third-party: `yaml`
 
 ### __init__.py
-Integration setup via config entry (no configuration.yaml):
+Integration setup via config entry (no CONFIG_SCHEMA or async_setup):
 
 - `from __future__ import annotations`
 - `logging`, `os` from stdlib
@@ -77,7 +77,7 @@ Integration setup via config entry (no configuration.yaml):
 - Build instructions string: card context (rewards, benefits for each card) + user's purchase query
 - Call `hass.services.async_call("ai_task", "generate_data", {"task_name": "Credit Card Advisor", "instructions": ..., "structure": {"recommended_card": "", "reason": "", "multiplier": "", "alternatives": [], "credit_flagged": [], "warnings": []}}, blocking=True, return_response=True)`
 - Return `{"response": result, "card_count": len(cards)}`
-- Wrap ai_task call in try/except — on failure return `{"response": "friendly message about configuring OpenRouter in HA UI", "card_count": 0}`
+- Wrap ai_task call in try/except — on failure return `{"response": "friendly message saying to configure an LLM provider in HA UI (Settings → Devices & services → AI Task)", "card_count": 0}`
 
 **`credit_advisor.add_card` service (takes `card_name` string):**
 - Call `hass.services.async_call("ai_task", "generate_data", {"task_name": "Credit Card Research", "instructions": "Research this credit card and return its benefits and reward structure. Include: name, issuer, annual_fee, benefits (list with type, name, amount, frequency, valid_at, expires), rewards.base (category to multiplier mapping).", "structure": {"name": "", "issuer": "", "annual_fee": 0, "benefits": [], "rewards": {}}}, blocking=True, return_response=True)`
@@ -99,13 +99,13 @@ hass.services.async_register(
 
 ## Behavior specifications
 - **No cards stored scenario:** query returns immediate friendly message without calling ai_task
-- **ai_task unavailable:** both services catch exception, return human-readable error telling user to configure OpenRouter via HA UI (Settings → Devices & services)
+- **ai_task unavailable:** both services catch exception, return human-readable error telling user to configure an LLM provider via HA UI (Settings → Devices & services → AI Task)
 - **add_card research failure:** if ai_task returns empty or invalid data, return error message
 - **All failures:** log a warning with %-formatting, never crash HA
 
 ## Constraints
 - No HTTP clients, no API keys, no external network calls — all LLM via `ai_task.generate_data`
-- No configuration.yaml — uses config flow with async_setup_entry
+- Uses config flow with async_setup_entry — no CONFIG_SCHEMA or async_setup
 - ATTR_* keys inline at the handler (response dicts, service parameter names)
 - STORAGE_DIR is a local variable in async_setup_entry, not a module constant
 - HA conventions: %-formatting for logging, Google-style docstrings, type hints required

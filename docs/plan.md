@@ -2,19 +2,16 @@
 
 > **For Hermes:** Use subagent-driven-development skill to implement this plan task-by-task.
 
-**Architecture:** HA custom component (`custom_components/credit_advisor/`) with config flow (no configuration.yaml), YAML-based card registry, integration with HA's built-in `ai_task.generate_data` service (no custom LLM client), and two services (query, add_card). Lovelace uses native cards (input_text + markdown) — no custom JS.
+**Architecture:** HA custom component (`custom_components/credit_advisor/`) with config flow, YAML-based card registry, integration with HA's built-in `ai_task.generate_data` service, and two services (query, add_card). Lovelace uses native cards (input_text + markdown) — no custom JS.
 
-**Tech Stack:** Home Assistant (2025.8+), Python 3.12, HA `ai_task` integration (routes through OpenRouter), YAML storage.
+**Tech Stack:** Home Assistant (2025.8+), Python 3.12, HA `ai_task` integration (provider-agnostic), YAML storage.
 
 **HA Config Path:** Replace `[HA_CONFIG]` in all file paths with your HA config directory (e.g. `/config`, `/home/homeassistant/.homeassistant/`).
 
 **Notes:**
 - No API keys or HTTP clients in our component — all LLM calls go through `ai_task.generate_data`
-- User configures OpenRouter once through the HA UI (not our component)
-- No `llm_client.py` file — the query service calls HA's service bus directly
-- manifest.json uses `"after_dependencies": ["ai_task", "open_router"]` to ensure these are loaded first
-
-> **Important — September 2025 Migration:** This plan was originally written when we planned to build a custom LLM client. We now use HA's built-in `ai_task.generate_data` service instead. The detailed code blocks below are illustrative of structure but **ignore all code that references `llm_client.py`, OpenRouter API keys, `aiohttp` HTTP calls, or custom `LLMClient` classes.** The query and add-card services should call `hass.services.async_call("ai_task", "generate_data", ...)` with a `structure` parameter for structured output, not a custom HTTP client. The manifest includes `after_dependencies: ["ai_task", "open_router"]` so these are available.
+- User configures their LLM provider through HA's AI Task integration (Settings → Devices & services)
+- manifest.json uses `"after_dependencies": ["ai_task"]` to ensure it's loaded first
 
 ---
 
@@ -71,7 +68,7 @@ class CreditAdvisorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 **Step 3: Create `__init__.py`**
 
-Setup via config entry — no configuration.yaml, no CONFIG_SCHEMA, no async_setup:
+Setup via config entry — no CONFIG_SCHEMA, no async_setup:
 
 ```python
 """Credit Advisor integration for Home Assistant."""
@@ -173,7 +170,7 @@ async def _async_query(hass: HomeAssistant, data: CreditAdvisorData, query_text:
         return {"response": result, "card_count": len(cards)}
     except Exception:
         _LOGGER.warning("ai_task call failed for query")
-        return {"response": "OpenRouter is not configured. Set it up in Settings → Devices & services.", "card_count": 0}
+        return {"response": "The AI Task integration is not configured. Set up an LLM provider in Settings → Devices & services → AI Task.", "card_count": 0}
 
 
 async def _async_add_card(hass: HomeAssistant, data: CreditAdvisorData, card_name: str) -> dict:
@@ -197,7 +194,7 @@ async def _async_add_card(hass: HomeAssistant, data: CreditAdvisorData, card_nam
         )
     except Exception:
         _LOGGER.warning("ai_task call failed for add_card")
-        return {"error": "OpenRouter is not configured. Set it up in Settings → Devices & services."}
+        return {"error": "The AI Task integration is not configured. Set up an LLM provider in Settings → Devices & services → AI Task."}
 
     if not result:
         return {"error": f"Could not research card: {card_name}"}
@@ -331,189 +328,15 @@ git commit -m "feat: add card registry with YAML storage"
 
 ---
 
-### Task 3: Create LLM Client (OpenRouter)
+### Task 3: LLM Query Service (ai_task)
 
-**Objective:** Build the `LLMClient` that calls OpenRouter with card context for purchase queries and card research.
+**Objective:** Already implemented in Task 1's `__init__.py`. Both `credit_advisor.query` and `credit_advisor.add_card` call `ai_task.generate_data` via the HA service bus — no separate LLM client file needed.
 
-**Files:**
-- Create: `[HA_CONFIG]/custom_components/credit_advisor/llm_client.py`
-
-**Step 1: Write the module**
-
-```python
-"""LLM client for OpenRouter — handles purchase queries and card research."""
-from __future__ import annotations
-
-import json
-import logging
-from typing import Any
-
-import aiohttp
-
-from .const import OPENROUTER_BASE_URL, OPENROUTER_TIMEOUT
-
-_LOGGER = logging.getLogger(__name__)
-
-SYSTEM_PROMPT = """You are a credit card advisor assistant. You help users decide which credit card to use for purchases.
-
-You have access to the user's card portfolio with reward structures and benefit balances.
-
-When answering:
-1. Recommend the best card for this specific purchase
-2. Explain why — mention the multiplier and value
-3. List alternatives ranked by value
-4. Flag any applicable monthly/quarterly credits the user should be aware of
-5. Warn if a card has a low multiplier and should be saved for better categories
-
-Be concise and specific. Use emojis where appropriate for readability."""
-
-QUERY_PROMPT_TEMPLATE = """The user has the following credit cards:
-
-{card_descriptions}
-
-The user asks: "{query}"
-
-Return a JSON object with these fields:
-- "recommended_card": name of the best card
-- "reason": why this card is best
-- "multiplier": the multiplier this purchase earns (e.g. "4x")
-- "alternatives": list of {name, multiplier, reason} for other cards
-- "credit_flagged": any monthly/quarterly credits that could apply to this purchase
-- "warnings": any things to watch out for"""
-
-RESEARCH_PROMPT = """Research the credit card "{card_name}" and return its current benefits and reward structure as JSON.
-
-Include:
-- name, issuer, annual_fee
-- benefits: list of benefits with type (monthly_credit, quarterly_credit, statement_credit, lounge, etc.), name, amount, frequency, valid_at merchants, expiration rules
-- rewards.base: map of category to multiplier
-Keep it factual and based on current publicly available information.
-Return ONLY valid JSON, no other text."""
-
-
-class LLMClient:
-    """Client for OpenRouter API calls."""
-
-    def __init__(self, api_key: str, model: str) -> None:
-        self._api_key = api_key
-        self._model = model
-        self._headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://homeassistant.local",
-        }
-
-    async def query_purchase(
-        self, card_yamls: list[dict[str, Any]], query: str
-    ) -> str:
-        """Ask the LLM which card to use for a purchase."""
-        if not card_yamls:
-            return "You haven't added any cards yet. Use the **Add Card** option to add your credit cards first."
-
-        card_descriptions = self._format_cards(card_yamls)
-        prompt = QUERY_PROMPT_TEMPLATE.format(
-            card_descriptions=card_descriptions,
-            query=query,
-        )
-
-        result = await self._call_llm(prompt)
-        return result
-
-    async def research_card(self, card_name: str) -> dict[str, Any] | None:
-        """Research a card's benefits and rewards via LLM."""
-        prompt = RESEARCH_PROMPT.format(card_name=card_name)
-
-        result = await self._call_llm(prompt)
-
-        try:
-            # Strip any markdown fences the LLM might wrap the JSON in
-            clean = result.strip()
-            if clean.startswith("```"):
-                clean = clean.split("\n", 1)[1]
-                clean = clean.rsplit("```", 1)[0]
-            return json.loads(clean.strip())
-        except (json.JSONDecodeError, IndexError) as e:
-            _LOGGER.error("Failed to parse card research response: %s", e)
-            _LOGGER.debug("Raw response: %s", result)
-            return None
-
-    async def _call_llm(self, prompt: str) -> str:
-        """Make a raw LLM call to OpenRouter."""
-        payload = {
-            "model": self._model,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.3,
-            "max_tokens": 1000,
-        }
-
-        timeout = aiohttp.ClientTimeout(total=OPENROUTER_TIMEOUT)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            try:
-                async with session.post(
-                    f"{OPENROUTER_BASE_URL}/chat/completions",
-                    headers=self._headers,
-                    json=payload,
-                ) as resp:
-                    if resp.status != 200:
-                        text = await resp.text()
-                        _LOGGER.error(
-                            "OpenRouter error (HTTP %d): %s", resp.status, text
-                        )
-                        return f"Sorry, I couldn't reach the LLM service right now. (Error {resp.status})"
-
-                    data = await resp.json()
-                    return data["choices"][0]["message"]["content"]
-
-            except TimeoutError:
-                _LOGGER.error("OpenRouter request timed out")
-                return "The request timed out. Please try again."
-            except Exception as e:
-                _LOGGER.error("OpenRouter request failed: %s", e)
-                return "Sorry, something went wrong processing your request."
-
-    @staticmethod
-    def _format_cards(card_yamls: list[dict[str, Any]]) -> str:
-        """Format card YAML data into a concise text description for the prompt."""
-        parts = []
-        for i, card in enumerate(card_yamls, 1):
-            name = card.get("name", card.get("id", f"Card {i}"))
-            lines = [f"Card {i}: {name}"]
-
-            if "rewards" in card and "base" in card["rewards"]:
-                cats = []
-                for cat, rate in card["rewards"]["base"].items():
-                    cats.append(f"  {cat}: {rate}")
-                if cats:
-                    lines.append("  Rewards:")
-                    lines.extend(cats)
-
-            if "benefits" in card:
-                active_benefits = [
-                    b for b in card["benefits"]
-                    if b.get("type", "").endswith("_credit")
-                ]
-                if active_benefits:
-                    lines.append(f"  Credits ({len(active_benefits)}):")
-                    for b in active_benefits:
-                        freq = b.get("frequency", "")
-                        amount = b.get("amount", "")
-                        bname = b.get("name", "")
-                        lines.append(f"    - {bname}: ${amount} {freq}")
-
-            parts.append("\n".join(lines))
-
-        return "\n\n".join(parts)
-```
-
-**Step 2: Commit**
-
-```bash
-git add [HA_CONFIG]/custom_components/credit_advisor/llm_client.py
-git commit -m "feat: add OpenRouter LLM client for card queries"
-```
+The prompt builder and structure definitions live as inline code in `__init__.py`:
+- `query` sends card context + user purchase query to `ai_task.generate_data` with a structured output schema
+- `add_card` sends a card research prompt to `ai_task.generate_data` with a card data schema
+- Both wrap the call in try/except for when AI Task isn't configured
+- No `llm_client.py`, no aiohttp, no API keys
 
 ---
 
@@ -523,8 +346,9 @@ git commit -m "feat: add OpenRouter LLM client for card queries"
 
 **Files:**
 - Create: `[HA_CONFIG]/custom_components/credit_advisor/sensor.py`
+- Modify: `[HA_CONFIG]/custom_components/credit_advisor/__init__.py` (register sensor platform via config entry)
 
-**Step 1: Write sensor platform**
+**Step 1: Write sensor platform** — uses `async_setup_entry`, not `async_setup_platform` (config flow component):
 
 ```python
 """Sensor platform for Credit Advisor."""
@@ -535,100 +359,26 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
-
-from .const import DOMAIN, ATTR_RESPONSE, ATTR_ERROR
-
-_LOGGER = logging.getLogger(__name__)
-
-
-async def async_setup_platform(
-    hass: HomeAssistant,
-    config: ConfigType,
-    async_add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None,
-) -> None:
-    """Set up the credit advisor sensor."""
-    async_add_entities([CreditResponseSensor(hass)])
-
-
-class CreditResponseSensor(SensorEntity):
-    """Sensor that holds the last LLM query response.
-
-    Updated by automation calling credit_advisor.query service.
-    Displayed in Lovelace via a markdown card.
-    """
-
-    _attr_name = "Credit Advisor Response"
-    _attr_unique_id = "credit_advisor_response"
-    _attr_icon = "mdi:credit-card-outline"
-
-    def __init__(self, hass: HomeAssistant) -> None:
-        super().__init__()
-        self._attr_native_value = "Ask a question to get started."
-        self._attr_extra_state_attributes = {}
-
-    async def async_set_response(self, response: str, attributes: dict[str, Any] | None = None) -> None:
-        """Update the sensor state from a query result."""
-        self._attr_native_value = response
-        self._attr_extra_state_attributes = attributes or {}
-        self.async_write_ha_state()
-```
-
-**Step 2: Update  `__init__.py` to expose the sensor**
-
-Modify the `handle_query` in `__init__.py` to also update the sensor. Replace `async_setup`:
-
-```python
-# In __init__.py, add after the sensor is discovered:
-# The sensor platform handles this via listening to events.
-# We need to expose it so _async_query can push updates.
-
-# Add this import at top of __init__.py
-# (already there from sensor platform registration)
-```
-
-Actually, a simpler approach: the sensor platform registers the entity, and the query service updates it via a helper. Let me update the sensor to be discoverable by the service.
-
-Modify `sensor.py` to add a simple registry:
-
-```python
-"""Sensor platform for Credit Advisor."""
-from __future__ import annotations
-
-import logging
-from typing import Any
-
-from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-SENSOR_INSTANCE: "CreditResponseSensor | None" = None
 
-
-async def async_setup_platform(
+async def async_setup_entry(
     hass: HomeAssistant,
-    config: ConfigType,
+    entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
-    """Set up the credit advisor sensor."""
-    global SENSOR_INSTANCE  # noqa: PLW0603
-    SENSOR_INSTANCE = CreditResponseSensor()
-    async_add_entities([SENSOR_INSTANCE])
+    """Set up the credit advisor sensor from a config entry."""
+    async_add_entities([CreditResponseSensor()])
 
 
 @callback
 def update_response(response: str) -> None:
     """Update the sensor with a new LLM response."""
-    global SENSOR_INSTANCE  # noqa: PLW0603
     if SENSOR_INSTANCE is not None:
         SENSOR_INSTANCE._attr_native_value = response  # noqa: SLF001
         SENSOR_INSTANCE.async_write_ha_state()
@@ -643,14 +393,17 @@ class CreditResponseSensor(SensorEntity):
     _attr_native_value = "Ask a question to get started."
 ```
 
-Now update `_async_query` in `__init__.py` to call `update_response`:
+**Step 2: Update `__init__.py`** — register sensor platform and wire up response updates:
 
 ```python
-# Add import
+# In async_setup_entry, add:
+await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
+
+# Add import at top:
 from .sensor import update_response
 
 # In _async_query, before returning:
-update_response(response)
+update_response(result)
 ```
 
 **Step 3: Commit**
@@ -665,162 +418,73 @@ git commit -m "feat: add response sensor for Lovelace dashboard integration"
 
 ### Task 5: Configure Lovelace Dashboard
 
-**Objective:** Set up the Lovelace view with input_text, button, and markdown card for the query interface.
+**Objective:** Set up the Lovelace view with input_text, button, and markdown card for the query interface. The component uses a config flow — no YAML config entry is needed.
 
 **Files:**
-- Modify: `[HA_CONFIG]/configuration.yaml` (add credit_advisor config + automation)
-- Create: Lovelace dashboard configuration (via HA UI or YAML)
+- Modify: Lovelace dashboard configuration (via HA UI or YAML)
+- No config YAML modifications needed
 
-**Step 1: Add credit_advisor to `configuration.yaml`**
+**Step 1: Add input helpers via HA UI**
 
-```yaml
-# configuration.yaml
+Create these entities in Settings → Devices & services → Helpers → Create helper:
 
-credit_advisor:
-  openrouter_api_key: "sk-or-v1-YOUR_OPENROUTER_KEY_HERE"
-  openrouter_model: "openai/gpt-4o-mini"
-```
+1. **Text helper** — `input_text.credit_query`
+   - Name: "What are you buying?"
+   - Icon: mdi:cart
 
-**Step 2: Add automation for the query button**
+2. **Button helper** — `input_button.credit_ask`
+   - Name: "Ask the Advisor"
+   - Icon: mdi:send
 
-```yaml
-# automations.yaml or a new file in automations/
+**Step 2: Add automation via HA UI**
 
-- id: "credit_advisor_query"
-  alias: "Credit Advisor — Process Query"
-  trigger:
-    - platform: state
-      entity_id: input_button.credit_ask
-  action:
-    - service: credit_advisor.query
-      data:
-        text: "{{ states('input_text.credit_query') }}"
-    - delay:
-        seconds: 1
-    - service: notify.notify
-      data:
-        message: "{{ state_attr('sensor.credit_advisor_response', 'native_value') }}"
-```
+Settings → Automations → Create automation → Create new automation:
 
-Wait, the sensor's state IS the response. The user will see it in the markdown card. Let me simplify:
-
-```yaml
-# automations.yaml
-
-- id: "credit_advisor_query"
-  alias: "Credit Advisor — Process Query"
-  trigger:
-    - platform: state
-      entity_id: input_button.credit_ask
-      to: "pressed"
-  action:
-    - service: credit_advisor.query
-      data:
-        text: "{{ states('input_text.credit_query') }}"
-```
+- Trigger: `input_button.credit_ask` → state is `pressed`
+- Action: Call service `credit_advisor.query` with text `{{ states('input_text.credit_query') }}`
 
 **Step 3: Create Lovelace view**
 
-Via the HA UI (Edit Dashboard → Add View) or via YAML dashboard:
+Edit Dashboard → Add View → Enter dashboard YAML:
 
 ```yaml
-# In your dashboard YAML (raw config editor):
-views:
-  - title: Credit Advisor
-    icon: mdi:credit-card
-    cards:
-      - type: heading
-        heading: 💳 Credit Card Advisor
+title: Credit Advisor
+icon: mdi:credit-card
+cards:
+  - type: heading
+    heading: 💳 Credit Card Advisor
 
-      - type: entities
-        title: Ask a Question
-        entities:
-          - entity: input_text.credit_query
-            name: "What are you buying?"
-          - entity: input_button.credit_ask
-            name: "Ask the Advisor"
+  - type: entities
+    title: Ask a Question
+    entities:
+      - entity: input_text.credit_query
+        name: "What are you buying?"
+      - entity: input_button.credit_ask
+        name: "Ask the Advisor"
 
-      - type: markdown
-        title: Recommendation
-        content: >
-          {{ state_attr('sensor.credit_advisor_response', 'state') or
-             states('sensor.credit_advisor_response') }}
+  - type: markdown
+    title: Recommendation
+    content: >
+      {{ state_attr('sensor.credit_advisor_response', 'state') or
+         states('sensor.credit_advisor_response') }}
 ```
 
-But wait, we need to create the `input_text` and `input_button` entities first.
-
-**Step 4: Add input helpers to `configuration.yaml`**
-
-```yaml
-# configuration.yaml
-
-input_text:
-  credit_query:
-    name: What are you buying?
-    icon: mdi:cart
-    initial: ""
-
-input_button:
-  credit_ask:
-    name: Ask the Advisor
-    icon: mdi:send
-```
-
-**Step 5: Restart HA and test**
+**Step 4: Restart HA and test**
 
 1. Restart Home Assistant
-2. Open the Credit Advisor dashboard view
+2. Navigate to the Credit Advisor dashboard
 3. Type a query: "Chipotle $14"
 4. Press "Ask the Advisor"
 5. Observe the markdown card update with the recommendation
 
-**Step 6: Commit**
+**Step 5: Commit**
 
 ```bash
-git add [HA_CONFIG]/configuration.yaml
-git add [HA_CONFIG]/automations.yaml
-git commit -m "feat: add Lovelace dashboard for credit advisor queries"
+git add lovelace/ (or export the view config if using YAML dashboards)
+git commit -m "docs: add Lovelace dashboard configuration instructions"
 ```
 
 ---
-
-## Configuration Summary
-
-After all tasks, your `configuration.yaml` needs these additions:
-
-```yaml
-# Credit Advisor
-credit_advisor:
-  openrouter_api_key: "sk-or-v1-..."    # Replace with your actual key
-  openrouter_model: "openai/gpt-4o-mini"
-
-# Dashboard helpers
-input_text:
-  credit_query:
-    name: What are you buying?
-    icon: mdi:cart
-    initial: ""
-
-input_button:
-  credit_ask:
-    name: Ask the Advisor
-    icon: mdi:send
-```
-
-Your HA automation (in `automations.yaml`):
-
-```yaml
-- id: "credit_advisor_query"
-  alias: "Credit Advisor — Process Query"
-  trigger:
-    - platform: state
-      entity_id: input_button.credit_ask
-      to: "pressed"
-  action:
-    - service: credit_advisor.query
-      data:
-        text: "{{ states('input_text.credit_query') }}"
-```
 
 ## Verification
 

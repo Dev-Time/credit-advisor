@@ -19,7 +19,7 @@ A Home Assistant-native credit card advisor platform that helps users decide whi
 
 ## Architecture
 
-Home Assistant provides the server, automation engine, push notifications, location zones, and dashboard. A custom HA integration (`credit_advisor`) provides the credit intelligence layer. **LLM calls are delegated to HA's built-in `ai_task.generate_data` service** (backed by OpenRouter) — no custom HTTP client or API keys needed in our component.
+Home Assistant provides the server, automation engine, push notifications, location zones, and dashboard. A custom HA integration (`credit_advisor`) provides the credit intelligence layer. **LLM calls are delegated to HA's built-in `ai_task.generate_data` service** — the user configures their preferred LLM provider through HA's UI.
 
 ```
 Lovelace Dashboard (input_text + markdown) ──┐
@@ -36,12 +36,12 @@ Lovelace Dashboard (input_text + markdown) ──┐
                         │
                         ▼
           ai_task.generate_data (HA built-in)
-              │ routes through OpenRouter
+              │ routes through configured LLM provider
               ▼
-          OpenRouter API (configured in HA UI)
+          LLM Provider API (configured via ai_task in HA UI)
 ```
 
-**No `configuration.yaml` block needed** — users add it via Settings → Devices & services → Add integration → Credit Card Advisor. The config flow creates the entry with no user-configurable options for MVP.
+**Config flow setup** — users add it via Settings → Devices & services → Add integration → Credit Card Advisor. The config flow creates the entry with no user-configurable options for MVP.
 
 **Storage** (`[ha_config]/credit_advisor/`):
 ```
@@ -125,7 +125,7 @@ Annual value rollup: aggregates last 365 days from the card's annual fee date. N
 
 ## Query Interface (MVP)
 
-**Via Lovelace dashboard (Option B):**
+**Via Lovelace dashboard:**
 - `input_text.credit_query` — user types merchant + amount
 - `input_button.credit_ask` — triggers automation
 - Automation calls `credit_advisor.query` service with text
@@ -175,10 +175,10 @@ Weekly automation calls `credit_advisor.refresh_benefits` which calls `ai_task.g
 
 ## Error Handling
 
-1. **`ai_task` not configured** → prompt user to set up OpenRouter in HA UI (Settings → Devices & services → Add integration → OpenRouter)
+1. **`ai_task` not configured** → prompt user to configure an LLM provider via HA UI (Settings → Devices & services → Add integration → AI Task)
 2. **No cards stored** → prompt user to add cards via `credit_advisor.add_card`
 3. **`ai_task` call fails** → log warning, return friendly message, never crash
-4. **No `after_dependencies` met** → HA will delay loading our component until `ai_task` and `open_router` are available
+4. **No `after_dependencies` met** → HA will delay loading our component until `ai_task` is available
 
 ---
 
@@ -189,7 +189,7 @@ Weekly automation calls `credit_advisor.refresh_benefits` which calls `ai_task.g
 - **Offer scraping** (headless browser on home hardware, Tier 2)
 - **Cloud automation** (TEE scraping, Tier 3)
 - **Affiliate/referral monetization** (long-term, delayed entry)
-- **Custom Lovelace chat card** (replaces Option B, adds chat history)
+- **Custom Lovelace chat card** (adds chat history to current dashboard)
 - **Structured rules engine** (replaces LLM for deterministic benefit matching)
 
 ---
