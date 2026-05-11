@@ -15,9 +15,7 @@ Note: `custom_components/credit_advisor/manifest.json` already exists with `"con
 True constants only — things that define the stable contract:
 - `DOMAIN = "credit_advisor"`
 - `SERVICE_QUERY = "query"` and `SERVICE_ADD_CARD = "add_card"`
-- `EVENT_BENEFIT_EXPIRING = "credit_advisor_benefit_expiring"` (Phase 2)
-
-No STORAGE_DIR (setup-time local variable), no ATTR_* keys (inline at the handler).
+No setup-time variables (STORAGE_DIR is a local in async_setup_entry), no ATTR_* keys (inline at the handler), no forward declarations for future phases.
 
 ### config_flow.py
 Standard HA config flow with minimal setup — no user-configurable options for MVP.

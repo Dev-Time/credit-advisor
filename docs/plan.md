@@ -37,10 +37,9 @@ True constants only — things that define a stable contract across files:
 DOMAIN = "credit_advisor"
 SERVICE_QUERY = "query"
 SERVICE_ADD_CARD = "add_card"
-EVENT_BENEFIT_EXPIRING = "credit_advisor_benefit_expiring"
 ```
 
-No STORAGE_DIR (setup-time local variable), no ATTR_* keys (inline at the handler), no API key/config constants.
+No setup-time variables (STORAGE_DIR is a local in async_setup_entry), no ATTR_* keys (inline at the handler), no forward declarations for future phases.
 
 **Step 2: Create `config_flow.py`**
 
