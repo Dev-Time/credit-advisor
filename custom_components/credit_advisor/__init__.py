@@ -12,11 +12,11 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Credit Card Advisor from a config entry."""
-    _LOGGER.info("Credit Advisor integration started")
+    _LOGGER.info("Integration started")
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    _LOGGER.info("Credit Advisor integration stopped")
+    _LOGGER.info("Integration stopped")
     return True
