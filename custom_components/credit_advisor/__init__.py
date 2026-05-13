@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError
 
 from .card_registry import CardRegistry
 from .const import DOMAIN, SERVICE_ADD_CARD, SERVICE_REMOVE_CARD
@@ -40,36 +42,58 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def handle_add_card(service_call: ServiceCall) -> None:
         """Handle the add_card service."""
         name = service_call.data["name"]
+        agent_id = service_call.data["agent_id"]
+
+        prompt = (
+            f"Research the credit card '{name}' and return a JSON object with this shape:\n"
+            "{\n"
+            '  "card_name": "official card name",\n'
+            '  "issuer": "issuing bank or company",\n'
+            '  "annual_fee": 250,\n'
+            '  "reward_categories": [\n'
+            '    {"category_name": "Dining", "rate": 4},\n'
+            '    {"category_name": "Travel", "rate": 3}\n'
+            "  ],\n"
+            '  "base_reward_rate": 1,\n'
+            '  "notes": "notable features"\n'
+            "}"
+        )
 
         try:
             result = await hass.services.async_call(
-                "ai_task",
-                "generate_data",
+                "conversation",
+                "process",
                 {
-                    "description": f"Research the credit card '{name}' and return a structured card profile.",
-                    "structure": {
-                        "card_name": "string — official issuer name (e.g. American Express Gold Card)",
-                        "issuer": "string — bank or issuer name",
-                        "annual_fee": "number — annual fee in USD, 0 if none",
-                        "reward_categories": [
-                            {
-                                "category_name": "string — e.g. Dining, Travel, Groceries",
-                                "rate": "number — e.g. 4 for 4x points per dollar",
-                            }
-                        ],
-                        "base_reward_rate": "number — base earning rate (e.g. 1 for 1x points per dollar)",
-                        "notes": "string — any other notable features",
-                    },
-                    "timeout": 30,
+                    "text": prompt,
+                    "agent_id": agent_id,
+                    "conversation_id": None,
                 },
                 blocking=True,
                 return_response=True,
             )
+        except HomeAssistantError as e:
+            _LOGGER.warning("Failed to call conversation.process for card '%s': %s", name, e)
+            return
         except Exception as e:
-            _LOGGER.warning("Failed to call ai_task for card '%s': %s", name, e)
+            _LOGGER.warning(
+                "Unexpected error calling conversation.process for card '%s': %s", name, e
+            )
             return
 
-        card_data = dict(result)
+        try:
+            response_text = result["response"]["speech"]["plain"]["speech"]
+        except (KeyError, TypeError) as e:
+            _LOGGER.warning("Failed to extract response text for card '%s': %s", name, e)
+            return
+
+        try:
+            card_data = json.loads(response_text)
+        except json.JSONDecodeError:
+            _LOGGER.warning(
+                "Failed to parse JSON for card '%s'. Raw response: %s", name, response_text
+            )
+            return
+
         card_id = card_registry.slugify(name)
         await hass.async_add_executor_job(card_registry.save_card, card_id, card_data)
         _LOGGER.info("Successfully added card: %s", name)
@@ -89,7 +113,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN,
         SERVICE_ADD_CARD,
         handle_add_card,
-        schema=vol.Schema({vol.Required("name"): str}),
+        schema=vol.Schema(
+            {
+                vol.Required("name"): str,
+                vol.Required("agent_id"): str,
+            }
+        ),
     )
 
     hass.services.async_register(
