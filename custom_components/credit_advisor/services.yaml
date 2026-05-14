@@ -1,0 +1,30 @@
+add_card:
+  name: Add Credit Card
+  description: >
+    Research a credit card and add it to the registry. Uses the configured
+    conversation agent (or the provided agent_id) to look up card details.
+  fields:
+    name:
+      required: true
+      description: "Full name of the credit card to research (e.g. 'American Express Gold Card')"
+      example: "Chase Sapphire Preferred"
+      selector:
+        text:
+    agent_id:
+      required: false
+      description: "Conversation agent to use for research. Falls back to the default configured in integration options."
+      example: "home_assistant"
+      selector:
+        conversation_agent:
+          language: "en"
+
+remove_card:
+  name: Remove Credit Card
+  description: Remove a credit card from the registry by its name.
+  fields:
+    card_name:
+      required: true
+      description: "Name of the card to remove (e.g. 'American Express Gold Card')"
+      example: "Chase Sapphire Preferred"
+      selector:
+        text:

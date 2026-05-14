@@ -1,0 +1,30 @@
+{
+  "title": "Credit Card Advisor",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure Credit Card Advisor",
+        "description": "Select a conversation agent for card research and optionally override the storage path.",
+        "data": {
+          "agent_id": "LLM Research Agent",
+          "storage_path": "Storage path (optional)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured%]"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure Credit Card Advisor",
+        "description": "Update the conversation agent or storage path.",
+        "data": {
+          "agent_id": "LLM Research Agent",
+          "storage_path": "Storage path (optional)"
+        }
+      }
+    }
+  }
+}

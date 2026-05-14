@@ -7,6 +7,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
+from homeassistant.helpers import selector
 
 from .const import DOMAIN
 
@@ -31,17 +32,23 @@ class CreditAdvisorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the initial step."""
         if user_input is not None:
             options = {}
-            if "storage_path" in user_input:
+            if "agent_id" in user_input:
+                options["agent_id"] = user_input["agent_id"]
+            if user_input.get("storage_path"):
                 options["storage_path"] = user_input["storage_path"]
             return self.async_create_entry(title="Credit Card Advisor", data={}, options=options)
+
+        default_path = self.hass.config.path(DOMAIN)
+        storage_description = f"Directory for card YAML files. Defaults to {default_path} (typically /config/credit_advisor/). Leave empty to use the default."
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
+                    vol.Required("agent_id"): selector.ConversationAgentSelector(),
                     vol.Optional(
                         "storage_path",
-                        description="Overrides the default hass.config.path(DOMAIN) directory.",
+                        description=storage_description,
                     ): str,
                 }
             ),
@@ -58,16 +65,23 @@ class CreditAdvisorOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
+        agent_id = self.config_entry.options.get("agent_id", "")
         storage_path = self.config_entry.options.get("storage_path", "")
+
+        default_path = self.hass.config.path(DOMAIN)
+        storage_description = f"Directory for card YAML files. Defaults to {default_path} (typically /config/credit_advisor/). Leave empty to use the default."
 
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
+                    vol.Required(
+                        "agent_id", default=agent_id
+                    ): selector.ConversationAgentSelector(),
                     vol.Optional(
                         "storage_path",
                         default=storage_path,
-                        description="Overrides the default hass.config.path(DOMAIN) directory.",
+                        description=storage_description,
                     ): str,
                 }
             ),
