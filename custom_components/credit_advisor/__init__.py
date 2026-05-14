@@ -42,7 +42,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def handle_add_card(service_call: ServiceCall) -> None:
         """Handle the add_card service."""
         name = service_call.data["name"]
-        agent_id = service_call.data["agent_id"]
+        agent_id = service_call.data.get("agent_id") or entry.options.get("agent_id")
+
+        if not agent_id:
+            _LOGGER.warning(
+                "No agent_id provided and no default configured for add_card '%s'", name
+            )
+            return
 
         prompt = (
             f"Research the credit card '{name}' and return a JSON object with this shape:\n"
@@ -116,7 +122,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         schema=vol.Schema(
             {
                 vol.Required("name"): str,
-                vol.Required("agent_id"): str,
+                vol.Optional("agent_id"): str,
             }
         ),
     )
