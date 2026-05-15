@@ -7,6 +7,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
+from homeassistant.helpers import selector
 
 from .const import DOMAIN
 
@@ -43,8 +44,8 @@ class CreditAdvisorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Optional(
                         "agent_id",
-                        description="The conversation agent to use for card research (e.g. conversation.openai_home). Leave empty to pass agent_id in service calls.",
-                    ): str,
+                        description="The conversation agent to use for card research (e.g. conversation.openai_home).",
+                    ): selector.ConversationAgentSelector(),
                     vol.Optional(
                         "storage_path",
                         description="Override the default storage directory. Leave empty to use the default.",
@@ -74,12 +75,12 @@ class CreditAdvisorOptionsFlowHandler(config_entries.OptionsFlow):
                     vol.Optional(
                         "agent_id",
                         default=agent_id,
-                        description="The conversation agent to use for card research (e.g. conversation.openai_home). Leave empty to pass agent_id in service calls.",
-                    ): str,
+                        description="The conversation agent to use for card research.",
+                    ): selector.ConversationAgentSelector(),
                     vol.Optional(
                         "storage_path",
                         default=storage_path,
-                        description="Override the default storage directory. Leave empty to use the default.",
+                        description="Override the default storage directory.",
                     ): str,
                 }
             ),
