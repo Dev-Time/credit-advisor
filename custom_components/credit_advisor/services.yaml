@@ -12,11 +12,10 @@ add_card:
         text:
     agent_id:
       required: false
-      description: "Conversation agent to use for research. Falls back to the default configured in integration options."
-      example: "home_assistant"
+      description: "Conversation agent to use. Falls back to the default configured in integration options."
+      example: "conversation.openai_home"
       selector:
-        conversation_agent:
-          language: "en"
+        text:
 
 remove_card:
   name: Remove Credit Card

@@ -7,7 +7,6 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
-from homeassistant.helpers import selector
 
 from .const import DOMAIN
 
@@ -32,23 +31,23 @@ class CreditAdvisorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the initial step."""
         if user_input is not None:
             options = {}
-            if "agent_id" in user_input:
+            if user_input.get("agent_id"):
                 options["agent_id"] = user_input["agent_id"]
             if user_input.get("storage_path"):
                 options["storage_path"] = user_input["storage_path"]
             return self.async_create_entry(title="Credit Card Advisor", data={}, options=options)
 
-        default_path = self.hass.config.path(DOMAIN)
-        storage_description = f"Directory for card YAML files. Defaults to {default_path} (typically /config/credit_advisor/). Leave empty to use the default."
-
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required("agent_id"): selector.ConversationAgentSelector(),
+                    vol.Optional(
+                        "agent_id",
+                        description="The conversation agent to use for card research (e.g. conversation.openai_home). Leave empty to pass agent_id in service calls.",
+                    ): str,
                     vol.Optional(
                         "storage_path",
-                        description=storage_description,
+                        description="Override the default storage directory. Leave empty to use the default.",
                     ): str,
                 }
             ),
@@ -68,20 +67,19 @@ class CreditAdvisorOptionsFlowHandler(config_entries.OptionsFlow):
         agent_id = self.config_entry.options.get("agent_id", "")
         storage_path = self.config_entry.options.get("storage_path", "")
 
-        default_path = self.hass.config.path(DOMAIN)
-        storage_description = f"Directory for card YAML files. Defaults to {default_path} (typically /config/credit_advisor/). Leave empty to use the default."
-
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
-                    vol.Required(
-                        "agent_id", default=agent_id
-                    ): selector.ConversationAgentSelector(),
+                    vol.Optional(
+                        "agent_id",
+                        default=agent_id,
+                        description="The conversation agent to use for card research (e.g. conversation.openai_home). Leave empty to pass agent_id in service calls.",
+                    ): str,
                     vol.Optional(
                         "storage_path",
                         default=storage_path,
-                        description=storage_description,
+                        description="Override the default storage directory. Leave empty to use the default.",
                     ): str,
                 }
             ),
