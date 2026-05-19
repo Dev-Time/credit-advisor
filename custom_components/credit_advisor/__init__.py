@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
 from .card_registry import CardRegistry
-from .const import DOMAIN, SERVICE_ADD_CARD, SERVICE_REMOVE_CARD
+from .const import DOMAIN, SERVICE_ADD_CARD, SERVICE_QUERY, SERVICE_REMOVE_CARD
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +38,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     card_registry = CardRegistry(hass, storage_path)
     hass.data[DOMAIN]["card_registry"] = card_registry
+
+    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
 
     async def handle_add_card(service_call: ServiceCall) -> None:
         """Handle the add_card service."""
@@ -132,6 +134,65 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         SERVICE_REMOVE_CARD,
         handle_remove_card,
         schema=vol.Schema({vol.Required("card_name"): str}),
+    )
+
+    async def handle_query(service_call: ServiceCall) -> None:
+        """Handle the query service — ask the LLM for a card recommendation."""
+        agent_id = entry.options.get("agent_id")
+
+        if not agent_id:
+            _LOGGER.warning("No agent_id configured for query service")
+            return
+
+        cards = await hass.async_add_executor_job(card_registry.list_cards)
+        if not cards:
+            _LOGGER.warning("No cards in registry — add some cards before querying")
+            return
+
+        card_summary = "\n".join(
+            f"- {c.get('card_name', c.get('card_id', 'unknown'))}" for c in cards
+        )
+
+        prompt = (
+            "You are a credit card advisor. Given the following cards in the user's wallet,\n"
+            f"Cards available:\n{card_summary}\n\n"
+            "Recommend a card and explain your reasoning concisely."
+        )
+
+        try:
+            result = await hass.services.async_call(
+                "conversation",
+                "process",
+                {
+                    "text": prompt,
+                    "agent_id": agent_id,
+                    "conversation_id": None,
+                },
+                blocking=True,
+                return_response=True,
+            )
+        except HomeAssistantError as e:
+            _LOGGER.warning("Failed to call conversation.process for query: %s", e)
+            return
+        except Exception as e:
+            _LOGGER.warning("Unexpected error calling conversation.process for query: %s", e)
+            return
+
+        try:
+            response_text = result["response"]["speech"]["plain"]["speech"]
+        except (KeyError, TypeError) as e:
+            _LOGGER.warning("Failed to extract response text from query: %s", e)
+            return
+
+        sensor = hass.data.get(DOMAIN, {}).get("sensor")
+        if sensor:
+            sensor.update_response(response_text)
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_QUERY,
+        handle_query,
+        schema=vol.Schema({}),
     )
 
     _LOGGER.info("Credit Advisor integration started")

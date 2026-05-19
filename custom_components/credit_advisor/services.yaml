@@ -27,3 +27,9 @@ remove_card:
       example: "Chase Sapphire Preferred"
       selector:
         text:
+
+query:
+  name: Query Card Recommendation
+  description: >
+    Ask the LLM for a credit card recommendation based on the cards currently
+    in the registry. The response is stored in the card_recommendation sensor.
