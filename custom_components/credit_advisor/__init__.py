@@ -89,7 +89,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return
 
         try:
-            response_text = result["response"]["speech"]["plain"]["speech"]
+            response_text = result["response"]["response"]["speech"]["plain"]["speech"]
         except (KeyError, TypeError) as e:
             _LOGGER.warning("Failed to extract response text for card '%s': %s", name, e)
             return
@@ -179,7 +179,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return
 
         try:
-            response_text = result["response"]["speech"]["plain"]["speech"]
+            response_text = result["response"]["response"]["speech"]["plain"]["speech"]
         except (KeyError, TypeError) as e:
             _LOGGER.warning("Failed to extract response text from query: %s", e)
             return
