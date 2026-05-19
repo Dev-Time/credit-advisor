@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
@@ -11,10 +10,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-
-_LOGGER = logging.getLogger(__name__)
-
-ATTR_LAST_QUERY = "last_query"
 
 
 async def async_setup_entry(
@@ -42,13 +37,14 @@ class CreditResponseSensor(SensorEntity):
         self.hass = hass
         self._attr_unique_id = f"{DOMAIN}_response"
         self._attr_name = "Card Recommendation"
+        self._attr_extra_state_attributes: dict[str, Any] | None = None
 
     def update_response(self, response_text: str, query_description: str = "") -> None:
         """Update the sensor with a new query response."""
         self._attr_native_value = response_text
         self._attr_extra_state_attributes = {}
         if query_description:
-            self._attr_extra_state_attributes[ATTR_LAST_QUERY] = query_description
+            self._attr_extra_state_attributes["last_query"] = query_description
         self.async_write_ha_state()
 
     @property
