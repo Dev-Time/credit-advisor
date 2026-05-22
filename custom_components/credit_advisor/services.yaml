@@ -40,3 +40,10 @@ query:
   description: >
     Ask the LLM for a credit card recommendation based on the cards currently
     in the registry. The response is stored in the card_recommendation sensor.
+  fields:
+    agent_id:
+      required: false
+      description: "Conversation agent to use. Falls back to the default configured in integration options."
+      example: "conversation.google_ai_search"
+      selector:
+        text:

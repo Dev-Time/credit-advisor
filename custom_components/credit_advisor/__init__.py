@@ -155,7 +155,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def handle_query(service_call: ServiceCall) -> None:
         """Handle the query service — ask the LLM for a card recommendation."""
-        agent_id = entry.options.get("agent_id")
+        agent_id = service_call.data.get("agent_id") or entry.options.get("agent_id")
 
         if not agent_id:
             _LOGGER.warning("No agent_id configured for query service")
@@ -209,7 +209,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN,
         SERVICE_QUERY,
         handle_query,
-        schema=vol.Schema({}),
+        schema=vol.Schema(
+            {
+                vol.Optional("agent_id"): str,
+            }
+        ),
     )
 
     _LOGGER.info("Credit Advisor integration started")
