@@ -17,6 +17,24 @@ from .const import DOMAIN, SERVICE_ADD_CARD, SERVICE_QUERY, SERVICE_REMOVE_CARD
 _LOGGER = logging.getLogger(__name__)
 
 
+def _extract_speech(data, depth=0):
+    """Recursively find any 'speech' text in the response tree."""
+    if depth > 10:
+        return None
+    if isinstance(data, dict):
+        if "speech" in data:
+            s = data["speech"]
+            if isinstance(s, dict) and "plain" in s and isinstance(s["plain"], dict):
+                return s["plain"].get("speech", "")
+            if isinstance(s, str):
+                return s
+        for v in data.values():
+            result = _extract_speech(v, depth + 1)
+            if result:
+                return result
+    return None
+
+
 def _create_dir(path: Path) -> None:
     """Create directory safely."""
     path.mkdir(parents=True, exist_ok=True)
@@ -225,18 +243,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except (KeyError, TypeError):
             try:
                 response_text = result["response"]["speech"]["plain"]["speech"]
-            except (KeyError, TypeError) as e:
-                # Log the actual structure for debugging
-                resp_keys = list(result.get("response", {}).keys())
-                all_keys = list(result.keys())
-                _LOGGER.warning(
-                    "Failed to extract response from query. "
-                    "Result keys: %s, Response sub-keys: %s. Error: %s",
-                    all_keys,
-                    resp_keys,
-                    e,
-                )
-                return {"recommendation": None, "error": f"Response extraction failed: {e}"}
+            except (KeyError, TypeError):
+                # Last resort: look for any "speech" key in the response tree
+                response_text = _extract_speech(result)
+                if response_text is None:
+                    _LOGGER.warning(
+                        "Failed to extract response from query. "
+                        "Result keys: %s",
+                        list(result.keys()),
+                    )
+                    return {"recommendation": None, "error": "Could not extract speech from response"}
 
         sensor = hass.data.get(DOMAIN, {}).get("sensor")
         if sensor:
