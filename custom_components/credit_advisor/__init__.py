@@ -107,9 +107,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         try:
             response_text = result["response"]["response"]["speech"]["plain"]["speech"]
-        except (KeyError, TypeError) as e:
-            _LOGGER.warning("Failed to extract response text for card '%s': %s", name, e)
-            return
+        except (KeyError, TypeError):
+            try:
+                response_text = result["response"]["speech"]["plain"]["speech"]
+            except (KeyError, TypeError) as e:
+                _LOGGER.warning(
+                    "Failed to extract response text for card '%s': %s", name, e
+                )
+                return
 
         # Strip markdown code blocks if present
         response_text = response_text.strip()
@@ -217,9 +222,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         try:
             response_text = result["response"]["response"]["speech"]["plain"]["speech"]
-        except (KeyError, TypeError) as e:
-            _LOGGER.warning("Failed to extract response text from query: %s", e)
-            return {"recommendation": None, "error": f"Response extraction failed: {e}"}
+        except (KeyError, TypeError):
+            try:
+                response_text = result["response"]["speech"]["plain"]["speech"]
+            except (KeyError, TypeError) as e:
+                _LOGGER.warning(
+                    "Failed to extract response text from query: %s. "
+                    "Response keys: %s",
+                    e,
+                    list(result.get("response", {}).keys()),
+                )
+                return {"recommendation": None, "error": f"Response extraction failed: {e}"}
 
         sensor = hass.data.get(DOMAIN, {}).get("sensor")
         if sensor:
