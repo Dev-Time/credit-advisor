@@ -226,11 +226,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             try:
                 response_text = result["response"]["speech"]["plain"]["speech"]
             except (KeyError, TypeError) as e:
+                # Log the actual structure for debugging
+                resp_keys = list(result.get("response", {}).keys())
+                all_keys = list(result.keys())
                 _LOGGER.warning(
-                    "Failed to extract response text from query: %s. "
-                    "Response keys: %s",
+                    "Failed to extract response from query. "
+                    "Result keys: %s, Response sub-keys: %s. Error: %s",
+                    all_keys,
+                    resp_keys,
                     e,
-                    list(result.get("response", {}).keys()),
                 )
                 return {"recommendation": None, "error": f"Response extraction failed: {e}"}
 
