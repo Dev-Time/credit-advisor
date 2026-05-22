@@ -257,13 +257,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         sensor = hass.data.get(DOMAIN, {}).get("sensor")
         if sensor:
             sensor.update_response(response_text)
-        else:
-            # Fallback: set state directly if sensor entity not found
-            hass.states.async_set(
-                f"sensor.{DOMAIN}_response",
-                response_text,
-                {"icon": "mdi:credit-card-outline", "friendly_name": "Card Recommendation"},
-            )
+
+        # Always update state directly as a reliable fallback
+        hass.states.async_set(
+            "sensor.card_recommendation",
+            response_text,
+            {
+                "icon": "mdi:credit-card-outline",
+                "friendly_name": "Card Recommendation",
+                "last_query": purchase or "",
+            },
+        )
 
         return {"recommendation": response_text}
 
