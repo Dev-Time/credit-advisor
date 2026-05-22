@@ -67,7 +67,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         If ``card_data`` is provided, save it directly (no LLM call).
         Otherwise, use the configured conversation agent to research the card.
         """
-        name = service_call.data["name"]
+        name = service_call.data.get("name")
+        if not name:
+            name = hass.states.get("input_text.credit_advisor_card_name")
+            if name:
+                name = name.state
+        if not name:
+            _LOGGER.warning("No card name provided for add_card")
+            return
 
         # If pre-researched card_data is provided, save directly
         if "card_data" in service_call.data:
@@ -159,7 +166,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def handle_remove_card(service_call: ServiceCall) -> None:
         """Handle the remove_card service."""
-        card_name = service_call.data["card_name"]
+        card_name = service_call.data.get("card_name")
+        if not card_name:
+            name_state = hass.states.get("input_text.credit_advisor_card_name")
+            if name_state:
+                card_name = name_state.state
+        if not card_name:
+            _LOGGER.warning("No card name provided for remove_card")
+            return
         card_id = card_registry.slugify(card_name)
 
         deleted = await hass.async_add_executor_job(card_registry.delete_card, card_id)
@@ -174,7 +188,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         handle_add_card,
         schema=vol.Schema(
             {
-                vol.Required("name"): str,
+                vol.Optional("name"): str,
                 vol.Optional("agent_id"): str,
                 vol.Optional("card_data"): dict,
             }
@@ -185,7 +199,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN,
         SERVICE_REMOVE_CARD,
         handle_remove_card,
-        schema=vol.Schema({vol.Required("card_name"): str}),
+        schema=vol.Schema({vol.Optional("card_name"): str}),
     )
 
     async def handle_query(service_call: ServiceCall) -> dict | None:
@@ -300,6 +314,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         cards = await hass.async_add_executor_job(card_registry.list_cards)
         card_names = [c.get("card_name", c.get("card_id", "unknown")) for c in cards]
         _LOGGER.info("Cards in registry: %s", card_names)
+
+        # Also update the sensor with the card list
+        if card_names:
+            summary = "Registered cards:\n" + "\n".join(f"  - {n}" for n in card_names)
+            hass.states.async_set(
+                "sensor.card_recommendation",
+                summary[:250] + ("…" if len(summary) > 250 else ""),
+                {
+                    "icon": "mdi:credit-card-outline",
+                    "friendly_name": "Card Recommendation",
+                    "cards": card_names,
+                },
+            )
+
         return {"cards": card_names}
 
     hass.services.async_register(
