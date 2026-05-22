@@ -163,19 +163,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         schema=vol.Schema({vol.Required("card_name"): str}),
     )
 
-    async def handle_query(service_call: ServiceCall) -> None:
-        """Handle the query service — ask the LLM for a card recommendation."""
+    async def handle_query(service_call: ServiceCall) -> dict | None:
+        """Handle the query service — ask the LLM for a card recommendation.
+
+        Returns the recommendation text for debugging (supports_response).
+        """
         agent_id = service_call.data.get("agent_id") or entry.options.get("agent_id")
         purchase = service_call.data.get("purchase", "")
 
         if not agent_id:
             _LOGGER.warning("No agent_id configured for query service")
-            return
+            return {"recommendation": None, "error": "No agent_id configured"}
 
         cards = await hass.async_add_executor_job(card_registry.list_cards)
         if not cards:
             _LOGGER.warning("No cards in registry — add some cards before querying")
-            return
+            return {"recommendation": None, "error": "No cards in registry"}
 
         card_summary = "\n".join(
             f"- {c.get('card_name', c.get('card_id', 'unknown'))}" for c in cards
@@ -207,20 +210,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
         except HomeAssistantError as e:
             _LOGGER.warning("Failed to call conversation.process for query: %s", e)
-            return
+            return {"recommendation": None, "error": str(e)}
         except Exception as e:
             _LOGGER.warning("Unexpected error calling conversation.process for query: %s", e)
-            return
+            return {"recommendation": None, "error": str(e)}
 
         try:
             response_text = result["response"]["response"]["speech"]["plain"]["speech"]
         except (KeyError, TypeError) as e:
             _LOGGER.warning("Failed to extract response text from query: %s", e)
-            return
+            return {"recommendation": None, "error": f"Response extraction failed: {e}"}
 
         sensor = hass.data.get(DOMAIN, {}).get("sensor")
         if sensor:
             sensor.update_response(response_text)
+
+        return {"recommendation": response_text}
 
     hass.services.async_register(
         DOMAIN,
@@ -232,6 +237,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 vol.Optional("purchase"): str,
             }
         ),
+        supports_response=SupportsResponse.OPTIONAL,
     )
 
     async def handle_list_cards(service_call: ServiceCall) -> dict:
