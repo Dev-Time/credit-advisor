@@ -84,14 +84,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
         try:
+            service_data = {
+                "text": prompt,
+            }
+            if agent_id:
+                service_data["agent_id"] = agent_id
             result = await hass.services.async_call(
                 "conversation",
                 "process",
-                {
-                    "text": prompt,
-                    "agent_id": agent_id,
-                    "conversation_id": None,
-                },
+                service_data,
                 blocking=True,
                 return_response=True,
             )
@@ -177,14 +178,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
         try:
+            service_data = {
+                "text": prompt,
+            }
+            if agent_id:
+                service_data["agent_id"] = agent_id
             result = await hass.services.async_call(
                 "conversation",
                 "process",
-                {
-                    "text": prompt,
-                    "agent_id": agent_id,
-                    "conversation_id": None,
-                },
+                service_data,
                 blocking=True,
                 return_response=True,
             )
