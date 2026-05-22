@@ -259,13 +259,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             sensor.update_response(response_text)
 
         # Always update state directly as a reliable fallback
+        # HA state max is 255 characters, so truncate and store full in attributes
+        truncated = response_text[:250] + "…" if len(response_text) > 250 else response_text
         hass.states.async_set(
             "sensor.card_recommendation",
-            response_text,
+            truncated,
             {
                 "icon": "mdi:credit-card-outline",
                 "friendly_name": "Card Recommendation",
                 "last_query": purchase or "",
+                "full_response": response_text,
             },
         )
 
