@@ -53,3 +53,8 @@ query:
       example: "$500 airline ticket"
       selector:
         text:
+
+list_cards:
+  name: List Credit Cards
+  description: List all credit cards currently in the registry. Returns card names and details.
+  fields: {}

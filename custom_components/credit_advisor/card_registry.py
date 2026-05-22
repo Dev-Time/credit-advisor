@@ -6,7 +6,6 @@ import pathlib
 import re
 
 import yaml
-
 from homeassistant.core import HomeAssistant
 
 

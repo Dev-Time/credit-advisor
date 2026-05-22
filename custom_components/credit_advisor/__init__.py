@@ -96,7 +96,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return
 
         prompt = (
-            f"Research the credit card '{name}' and return a JSON object with this shape:\n"
+            "You are a credit card research assistant. Your task is to research the "
+            f"credit card '{name}' using web search tools.\n\n"
+            "Use your available web search or browsing tools to find the most current "
+            "information about this card from the issuer's official website or reputable "
+            "financial sources. Then return a JSON object with this exact shape:\n"
             "{\n"
             '  "card_name": "official card name",\n'
             '  "issuer": "issuing bank or company",\n'
@@ -106,8 +110,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             '    {"category_name": "Travel", "rate": 3}\n'
             "  ],\n"
             '  "base_reward_rate": 1,\n'
-            '  "notes": "notable features"\n'
-            "}"
+            '  "notes": "notable features or sign-up bonus"\n'
+            "}\n\n"
+            "Important: Do NOT rely on your training data alone. Use web search/browsing "
+            "tools to verify current fees, reward rates, and terms."
         )
 
         try:
@@ -138,9 +144,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             try:
                 response_text = result["response"]["speech"]["plain"]["speech"]
             except (KeyError, TypeError) as e:
-                _LOGGER.warning(
-                    "Failed to extract response text for card '%s': %s", name, e
-                )
+                _LOGGER.warning("Failed to extract response text for card '%s': %s", name, e)
                 return
 
         # Strip markdown code blocks if present
@@ -264,11 +268,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 response_text = _extract_speech(result)
                 if response_text is None:
                     _LOGGER.warning(
-                        "Failed to extract response from query. "
-                        "Result keys: %s",
+                        "Failed to extract response from query. Result keys: %s",
                         list(result.keys()),
                     )
-                    return {"recommendation": None, "error": "Could not extract speech from response"}
+                    return {
+                        "recommendation": None,
+                        "error": "Could not extract speech from response",
+                    }
 
         # Update sensor entity internally
         sensor = hass.data.get(DOMAIN, {}).get("sensor")
