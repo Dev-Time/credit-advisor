@@ -3,6 +3,7 @@ add_card:
   description: >
     Research a credit card and add it to the registry. Uses the configured
     conversation agent (or the provided agent_id) to look up card details.
+    If card_data is provided, saves it directly without LLM research.
   fields:
     name:
       required: true
@@ -16,6 +17,12 @@ add_card:
       example: "conversation.openai_home"
       selector:
         text:
+    card_data:
+      required: false
+      description: "Pre-researched card data as a JSON object. If provided, skips the LLM research and saves directly."
+      advanced: true
+      selector:
+        object:
 
 remove_card:
   name: Remove Credit Card
