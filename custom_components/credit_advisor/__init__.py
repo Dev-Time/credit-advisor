@@ -8,7 +8,7 @@ from pathlib import Path
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
 
 from .card_registry import CardRegistry
@@ -234,16 +234,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ),
     )
 
-    async def handle_list_cards(service_call: ServiceCall) -> None:
+    async def handle_list_cards(service_call: ServiceCall) -> dict:
         cards = await hass.async_add_executor_job(card_registry.list_cards)
         card_names = [c.get("card_name", c.get("card_id", "unknown")) for c in cards]
         _LOGGER.info("Cards in registry: %s", card_names)
+        return {"cards": card_names}
 
     hass.services.async_register(
         DOMAIN,
         "list_cards",
         handle_list_cards,
         schema=vol.Schema({}),
+        supports_response=SupportsResponse.ONLY,
     )
 
     _LOGGER.info("Credit Advisor integration started")
