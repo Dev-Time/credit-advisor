@@ -42,8 +42,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
 
     async def handle_add_card(service_call: ServiceCall) -> None:
-        """Handle the add_card service."""
+        """Handle the add_card service.
+
+        If ``card_data`` is provided, save it directly (no LLM call).
+        Otherwise, use the configured conversation agent to research the card.
+        """
         name = service_call.data["name"]
+
+        # If pre-researched card_data is provided, save directly
+        if "card_data" in service_call.data:
+            card_data = service_call.data["card_data"]
+            if not isinstance(card_data, dict):
+                _LOGGER.warning("card_data must be a dict for card '%s'", name)
+                return
+            card_id = card_registry.slugify(name)
+            await hass.async_add_executor_job(card_registry.save_card, card_id, card_data)
+            _LOGGER.info("Successfully added card with pre-researched data: %s", name)
+            return
+
         agent_id = service_call.data.get("agent_id") or entry.options.get("agent_id")
 
         if not agent_id:
@@ -125,6 +141,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             {
                 vol.Required("name"): str,
                 vol.Optional("agent_id"): str,
+                vol.Optional("card_data"): dict,
             }
         ),
     )
