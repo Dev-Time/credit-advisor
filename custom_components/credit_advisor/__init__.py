@@ -111,6 +111,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.warning("Failed to extract response text for card '%s': %s", name, e)
             return
 
+        # Strip markdown code blocks if present
+        response_text = response_text.strip()
+        if response_text.startswith("```"):
+            # Extract JSON from markdown code block
+            start = response_text.find("{")
+            end = response_text.rfind("}")
+            if start != -1 and end != -1:
+                response_text = response_text[start : end + 1]
+
         try:
             card_data = json.loads(response_text)
         except json.JSONDecodeError:

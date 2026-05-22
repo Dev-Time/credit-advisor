@@ -1,8 +1,13 @@
+"""Card registry storing credit cards as YAML files."""
+
+from __future__ import annotations
+
 import pathlib
 import re
 
+import yaml
+
 from homeassistant.core import HomeAssistant
-from homeassistant.util.yaml import dump, load_yaml
 
 
 class CardRegistry:
@@ -30,7 +35,7 @@ class CardRegistry:
     def save_card(self, card_id: str, card_data: dict) -> None:
         """Save card data to a YAML file."""
         card_path = self.get_card_path(card_id)
-        yaml_content = dump(
+        yaml_content = yaml.dump(
             card_data,
             default_flow_style=False,
             sort_keys=False,
@@ -43,7 +48,8 @@ class CardRegistry:
         card_path = self.get_card_path(card_id)
         if not card_path.exists():
             return None
-        return load_yaml(str(card_path))
+        with card_path.open(encoding="utf-8") as f:
+            return yaml.safe_load(f)
 
     def delete_card(self, card_id: str) -> bool:
         """Delete a card's YAML file."""
@@ -60,7 +66,8 @@ class CardRegistry:
 
         cards = []
         for file_path in self._cards_dir.glob("*.yaml"):
-            card_data = load_yaml(str(file_path))
+            with file_path.open(encoding="utf-8") as f:
+                card_data = yaml.safe_load(f)
             if card_data is not None:
                 card_data["card_id"] = file_path.stem
                 cards.append(card_data)
