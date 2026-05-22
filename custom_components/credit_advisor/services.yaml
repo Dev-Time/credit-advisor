@@ -47,3 +47,9 @@ query:
       example: "conversation.google_ai_search"
       selector:
         text:
+    purchase:
+      required: false
+      description: "Describe the purchase you're planning (e.g. '$500 Delta flight')."
+      example: "$500 airline ticket"
+      selector:
+        text:

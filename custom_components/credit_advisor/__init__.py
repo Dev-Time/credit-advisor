@@ -166,6 +166,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def handle_query(service_call: ServiceCall) -> None:
         """Handle the query service — ask the LLM for a card recommendation."""
         agent_id = service_call.data.get("agent_id") or entry.options.get("agent_id")
+        purchase = service_call.data.get("purchase", "")
 
         if not agent_id:
             _LOGGER.warning("No agent_id configured for query service")
@@ -180,10 +181,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             f"- {c.get('card_name', c.get('card_id', 'unknown'))}" for c in cards
         )
 
+        purchase_context = ""
+        if purchase:
+            purchase_context = f"\nPurchase to evaluate: {purchase}\n"
+
         prompt = (
             "You are a credit card advisor. Given the following cards in the user's wallet,\n"
             f"Cards available:\n{card_summary}\n\n"
-            "Recommend a card and explain your reasoning concisely."
+            f"{purchase_context}"
+            "Recommend the best card and explain your reasoning concisely."
         )
 
         try:
@@ -223,8 +229,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         schema=vol.Schema(
             {
                 vol.Optional("agent_id"): str,
+                vol.Optional("purchase"): str,
             }
         ),
+    )
+
+    async def handle_list_cards(service_call: ServiceCall) -> None:
+        cards = await hass.async_add_executor_job(card_registry.list_cards)
+        card_names = [c.get("card_name", c.get("card_id", "unknown")) for c in cards]
+        _LOGGER.info("Cards in registry: %s", card_names)
+
+    hass.services.async_register(
+        DOMAIN,
+        "list_cards",
+        handle_list_cards,
+        schema=vol.Schema({}),
     )
 
     _LOGGER.info("Credit Advisor integration started")
