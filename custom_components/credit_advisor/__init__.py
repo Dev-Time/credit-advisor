@@ -25,8 +25,10 @@ def _extract_speech(data, depth=0):
         if "speech" in data:
             s = data["speech"]
             if isinstance(s, dict) and "plain" in s and isinstance(s["plain"], dict):
-                return s["plain"].get("speech", "")
-            if isinstance(s, str):
+                text = s["plain"].get("speech", "")
+                if text:
+                    return text
+            elif isinstance(s, str) and s:
                 return s
         for v in data.values():
             result = _extract_speech(v, depth + 1)
