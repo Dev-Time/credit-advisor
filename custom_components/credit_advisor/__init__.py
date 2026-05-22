@@ -256,12 +256,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     )
                     return {"recommendation": None, "error": "Could not extract speech from response"}
 
-        sensor = hass.data.get(DOMAIN, {}).get("sensor")
-        if sensor:
-            sensor.update_response(response_text)
-
-        # Always update state directly as a reliable fallback
-        # HA state max is 255 characters, so truncate and store full in attributes
+        # Update sensor state — truncate to 250 chars (HA 255 limit)
         truncated = response_text[:250] + "…" if len(response_text) > 250 else response_text
         hass.states.async_set(
             "sensor.card_recommendation",
