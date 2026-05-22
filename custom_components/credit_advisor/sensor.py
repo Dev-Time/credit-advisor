@@ -29,7 +29,6 @@ class CreditResponseSensor(SensorEntity):
 
     _attr_has_entity_name = True
     _attr_icon = "mdi:credit-card-outline"
-    _attr_native_value = "No query yet"
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the sensor."""
@@ -37,6 +36,7 @@ class CreditResponseSensor(SensorEntity):
         self.hass = hass
         self._attr_unique_id = f"{DOMAIN}_response"
         self._attr_name = "Card Recommendation"
+        self._attr_native_value = "No query yet"
         self._attr_extra_state_attributes: dict[str, Any] | None = None
 
     def update_response(self, response_text: str, query_description: str = "") -> None:
