@@ -293,6 +293,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         sensor = hass.data.get(DOMAIN, {}).get("sensor")
         if sensor:
             sensor.update_response(response_text, query_description=purchase)
+            # Also set state machine directly as backup
+            hass.states.async_set(
+                "sensor.card_recommendation",
+                response_text,
+                {
+                    "icon": "mdi:credit-card-outline",
+                    "friendly_name": "Card Recommendation",
+                    "last_query": purchase or "",
+                    "full_response": response_text,
+                },
+            )
         else:
             _LOGGER.warning("Sensor entity not found in hass.data")
 
