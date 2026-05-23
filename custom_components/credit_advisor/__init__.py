@@ -61,6 +61,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
 
+    async def _refresh_registry_sensor() -> None:
+        """Refresh the registry sensor with current card list."""
+        cards = await hass.async_add_executor_job(card_registry.list_cards)
+        card_names = [c.get("card_name", c.get("card_id", "unknown")) for c in cards]
+        reg_sensor = hass.data.get(DOMAIN, {}).get("registry_sensor")
+        if reg_sensor:
+            reg_sensor.update_cards(card_names)
+        else:
+            _LOGGER.warning("Registry sensor not found in hass.data")
+
     async def handle_add_card(service_call: ServiceCall) -> None:
         """Handle the add_card service.
 
@@ -85,6 +95,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             card_id = card_registry.slugify(name)
             await hass.async_add_executor_job(card_registry.save_card, card_id, card_data)
             _LOGGER.info("Successfully added card with pre-researched data: %s", name)
+            await _refresh_registry_sensor()
             return
 
         agent_id = service_call.data.get("agent_id") or entry.options.get("agent_id")
@@ -166,6 +177,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         card_id = card_registry.slugify(name)
         await hass.async_add_executor_job(card_registry.save_card, card_id, card_data)
+        await _refresh_registry_sensor()
         _LOGGER.info("Successfully added card: %s", name)
 
     async def handle_remove_card(service_call: ServiceCall) -> None:
@@ -185,6 +197,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.info("Successfully removed card: %s", card_name)
         else:
             _LOGGER.info("Card not found, could not remove: %s", card_name)
+        await _refresh_registry_sensor()
 
     hass.services.async_register(
         DOMAIN,
@@ -320,20 +333,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         cards = await hass.async_add_executor_job(card_registry.list_cards)
         card_names = [c.get("card_name", c.get("card_id", "unknown")) for c in cards]
         _LOGGER.info("Cards in registry: %s", card_names)
-
-        # Also update the sensor with the card list
-        if card_names:
-            summary = "Registered cards:\n" + "\n".join(f"  - {n}" for n in card_names)
-            hass.states.async_set(
-                "sensor.card_recommendation",
-                summary[:250] + ("…" if len(summary) > 250 else ""),
-                {
-                    "icon": "mdi:credit-card-outline",
-                    "friendly_name": "Card Recommendation",
-                    "cards": card_names,
-                },
-            )
-
+        await _refresh_registry_sensor()
         return {"cards": card_names}
 
     hass.services.async_register(
