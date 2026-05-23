@@ -289,30 +289,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         "error": "Could not extract speech from response",
                     }
 
-        # Update sensor entity internally
+# Update sensor entity
         sensor = hass.data.get(DOMAIN, {}).get("sensor")
         if sensor:
-            sensor.update_response(response_text)
+            sensor.update_response(response_text, query_description=purchase)
         else:
             _LOGGER.warning("Sensor entity not found in hass.data")
-
-        # Also set state directly (truncated to 250 chars for HA 255 limit)
-        truncated = response_text[:250] + "…" if len(response_text) > 250 else response_text
-        _LOGGER.info(
-            "Setting sensor state: %d chars truncated to %d",
-            len(response_text),
-            len(truncated),
-        )
-        hass.states.async_set(
-            "sensor.card_recommendation",
-            truncated,
-            {
-                "icon": "mdi:credit-card-outline",
-                "friendly_name": "Card Recommendation",
-                "last_query": purchase or "",
-                "full_response": response_text,
-            },
-        )
 
         return {"recommendation": response_text}
 

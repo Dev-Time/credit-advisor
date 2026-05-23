@@ -44,7 +44,7 @@ class CreditResponseSensor(SensorEntity):
     def update_response(self, response_text: str, query_description: str = "") -> None:
         """Update the sensor with a new query response."""
         self._attr_native_value = response_text
-        self._attr_extra_state_attributes = {}
+        self._attr_extra_state_attributes = {"full_response": response_text}
         if query_description:
             self._attr_extra_state_attributes["last_query"] = query_description
         self.async_write_ha_state()
