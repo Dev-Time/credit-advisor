@@ -43,8 +43,13 @@ class CreditResponseSensor(SensorEntity, RestoreEntity):
         self._attr_extra_state_attributes: dict[str, Any] | None = None
 
     def update_response(self, response_text: str, query_description: str = "") -> None:
-        """Update the sensor with a new query response."""
-        self._attr_native_value = response_text
+        """Update the sensor with a new query response.
+
+        The sensor state is truncated to 255 chars (HA limit). The full
+        response is stored in the ``full_response`` attribute.
+        """
+        truncated = response_text[:252] + "…" if len(response_text) > 252 else response_text
+        self._attr_native_value = truncated
         self._attr_extra_state_attributes = {"full_response": response_text}
         if query_description:
             self._attr_extra_state_attributes["last_query"] = query_description
@@ -54,7 +59,8 @@ class CreditResponseSensor(SensorEntity, RestoreEntity):
         """Restore last state on startup."""
         last_state = await self.async_get_last_state()
         if last_state is not None and last_state.state not in ("unknown", "unavailable", None):
-            self._attr_native_value = last_state.state
+            truncated = last_state.state[:252] + "..." if len(last_state.state) > 252 else last_state.state
+            self._attr_native_value = truncated
         if last_state is not None and last_state.attributes:
             self._attr_extra_state_attributes = dict(last_state.attributes)
         self.async_write_ha_state()
@@ -93,7 +99,8 @@ class CreditCardRegistrySensor(SensorEntity, RestoreEntity):
         """Restore last state on startup."""
         last_state = await self.async_get_last_state()
         if last_state is not None and last_state.state not in ("unknown", "unavailable", None):
-            self._attr_native_value = last_state.state
+            truncated = last_state.state[:252] + "..." if len(last_state.state) > 252 else last_state.state
+            self._attr_native_value = truncated
         if last_state is not None and last_state.attributes:
             self._attr_extra_state_attributes = dict(last_state.attributes)
         self.async_write_ha_state()

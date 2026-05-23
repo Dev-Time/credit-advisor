@@ -293,10 +293,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         sensor = hass.data.get(DOMAIN, {}).get("sensor")
         if sensor:
             sensor.update_response(response_text, query_description=purchase)
-            # Also set state machine directly as backup
+            # Also set state machine directly as backup (truncated to HA 255 limit)
+            truncated = response_text[:252] + "…" if len(response_text) > 252 else response_text
             hass.states.async_set(
                 "sensor.card_recommendation",
-                response_text,
+                truncated,
                 {
                     "icon": "mdi:credit-card-outline",
                     "friendly_name": "Card Recommendation",
