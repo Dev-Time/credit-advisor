@@ -1,7 +1,7 @@
 {
   "domain": "credit_advisor",
   "name": "Credit Card Advisor",
-  "version": "0.5.21",
+  "version": "0.5.22",
   "documentation": "https://github.com/Dev-Time/credit-advisor",
   "requirements": [],
   "after_dependencies": ["conversation"],

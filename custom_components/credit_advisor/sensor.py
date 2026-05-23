@@ -8,6 +8,7 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import DOMAIN
 
@@ -26,7 +27,7 @@ async def async_setup_entry(
     hass.data[DOMAIN]["registry_sensor"] = registry_sensor
 
 
-class CreditResponseSensor(SensorEntity):
+class CreditResponseSensor(SensorEntity, RestoreEntity):
     """Sensor that holds the last credit card query response."""
 
     _attr_has_entity_name = True
@@ -49,13 +50,22 @@ class CreditResponseSensor(SensorEntity):
             self._attr_extra_state_attributes["last_query"] = query_description
         self.async_write_ha_state()
 
+    async def async_added_to_hass(self) -> None:
+        """Restore last state on startup."""
+        last_state = await self.async_get_last_state()
+        if last_state is not None and last_state.state not in ("unknown", "unavailable", None):
+            self._attr_native_value = last_state.state
+        if last_state is not None and last_state.attributes:
+            self._attr_extra_state_attributes = dict(last_state.attributes)
+        self.async_write_ha_state()
+
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return extra attributes."""
         return self._attr_extra_state_attributes
 
 
-class CreditCardRegistrySensor(SensorEntity):
+class CreditCardRegistrySensor(SensorEntity, RestoreEntity):
     """Sensor that holds the list of registered credit cards."""
 
     _attr_has_entity_name = True
@@ -77,6 +87,15 @@ class CreditCardRegistrySensor(SensorEntity):
         else:
             self._attr_native_value = "No cards registered"
         self._attr_extra_state_attributes = {"cards": card_names}
+        self.async_write_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        """Restore last state on startup."""
+        last_state = await self.async_get_last_state()
+        if last_state is not None and last_state.state not in ("unknown", "unavailable", None):
+            self._attr_native_value = last_state.state
+        if last_state is not None and last_state.attributes:
+            self._attr_extra_state_attributes = dict(last_state.attributes)
         self.async_write_ha_state()
 
     @property
