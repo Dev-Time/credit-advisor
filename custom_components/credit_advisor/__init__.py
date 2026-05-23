@@ -341,7 +341,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "list_cards",
         handle_list_cards,
         schema=vol.Schema({}),
-        supports_response=SupportsResponse.ONLY,
+        supports_response=SupportsResponse.OPTIONAL,
     )
 
     _LOGGER.info("Credit Advisor integration started")
