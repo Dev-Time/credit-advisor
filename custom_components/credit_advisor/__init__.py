@@ -289,7 +289,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         "error": "Could not extract speech from response",
                     }
 
-# Update sensor entity
+        # Update sensor entity
         sensor = hass.data.get(DOMAIN, {}).get("sensor")
         if sensor:
             sensor.update_response(response_text, query_description=purchase)

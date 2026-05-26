@@ -8,6 +8,9 @@ import re
 import yaml
 from homeassistant.core import HomeAssistant
 
+_INVALID_CHARS_RE = re.compile(r"[^a-z0-9_\-]")
+_MULTIPLE_UNDERSCORES_RE = re.compile(r"[_\-]+")
+
 
 class CardRegistry:
     """Registry to manage credit cards stored as YAML files."""
@@ -23,8 +26,8 @@ class CardRegistry:
         """Convert a name into a valid card id/filename slug."""
         name = name.lower().strip()
         name = name.replace(" ", "_")
-        name = re.sub(r"[^a-z0-9_\-]", "", name)
-        name = re.sub(r"[_\-]+", "_", name)
+        name = _INVALID_CHARS_RE.sub("", name)
+        name = _MULTIPLE_UNDERSCORES_RE.sub("_", name)
         return name
 
     def get_card_path(self, card_id: str) -> pathlib.Path:

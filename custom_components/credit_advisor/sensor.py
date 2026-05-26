@@ -59,7 +59,9 @@ class CreditResponseSensor(SensorEntity, RestoreEntity):
         """Restore last state on startup."""
         last_state = await self.async_get_last_state()
         if last_state is not None and last_state.state not in ("unknown", "unavailable", None):
-            truncated = last_state.state[:252] + "..." if len(last_state.state) > 252 else last_state.state
+            truncated = (
+                last_state.state[:252] + "..." if len(last_state.state) > 252 else last_state.state
+            )
             self._attr_native_value = truncated
         if last_state is not None and last_state.attributes:
             self._attr_extra_state_attributes = dict(last_state.attributes)
@@ -99,7 +101,9 @@ class CreditCardRegistrySensor(SensorEntity, RestoreEntity):
         """Restore last state on startup."""
         last_state = await self.async_get_last_state()
         if last_state is not None and last_state.state not in ("unknown", "unavailable", None):
-            truncated = last_state.state[:252] + "..." if len(last_state.state) > 252 else last_state.state
+            truncated = (
+                last_state.state[:252] + "..." if len(last_state.state) > 252 else last_state.state
+            )
             self._attr_native_value = truncated
         if last_state is not None and last_state.attributes:
             self._attr_extra_state_attributes = dict(last_state.attributes)
