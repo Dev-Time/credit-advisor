@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pathlib
-import re
 
 import yaml
 from homeassistant.core import HomeAssistant
@@ -18,14 +17,6 @@ class CardRegistry:
         self._storage_path = pathlib.Path(storage_path)
         self._cards_dir = self._storage_path / "cards"
         self._cards_dir.mkdir(parents=True, exist_ok=True)
-
-    def slugify(self, name: str) -> str:
-        """Convert a name into a valid card id/filename slug."""
-        name = name.lower().strip()
-        name = name.replace(" ", "_")
-        name = re.sub(r"[^a-z0-9_\-]", "", name)
-        name = re.sub(r"[_\-]+", "_", name)
-        return name
 
     def get_card_path(self, card_id: str) -> pathlib.Path:
         """Get the full path to a card's YAML file."""

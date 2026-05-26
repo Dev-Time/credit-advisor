@@ -10,6 +10,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.util import slugify
 
 from .card_registry import CardRegistry
 from .const import DOMAIN, SERVICE_ADD_CARD, SERVICE_QUERY, SERVICE_REMOVE_CARD
@@ -92,7 +93,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if not isinstance(card_data, dict):
                 _LOGGER.warning("card_data must be a dict for card '%s'", name)
                 return
-            card_id = card_registry.slugify(name)
+            card_id = slugify(name)
             await hass.async_add_executor_job(card_registry.save_card, card_id, card_data)
             _LOGGER.info("Successfully added card with pre-researched data: %s", name)
             await _refresh_registry_sensor()
@@ -175,7 +176,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             return
 
-        card_id = card_registry.slugify(name)
+        card_id = slugify(name)
         await hass.async_add_executor_job(card_registry.save_card, card_id, card_data)
         await _refresh_registry_sensor()
         _LOGGER.info("Successfully added card: %s", name)
@@ -190,7 +191,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if not card_name:
             _LOGGER.warning("No card name provided for remove_card")
             return
-        card_id = card_registry.slugify(card_name)
+        card_id = slugify(card_name)
 
         deleted = await hass.async_add_executor_job(card_registry.delete_card, card_id)
         if deleted:
@@ -289,7 +290,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         "error": "Could not extract speech from response",
                     }
 
-# Update sensor entity
+        # Update sensor entity
         sensor = hass.data.get(DOMAIN, {}).get("sensor")
         if sensor:
             sensor.update_response(response_text, query_description=purchase)
