@@ -102,9 +102,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         agent_id = service_call.data.get("agent_id") or entry.options.get("agent_id")
 
         if not agent_id:
-            _LOGGER.warning(
-                "No agent_id provided and no default configured for add_card '%s'", name
+            _LOGGER.info(
+                "No agent_id configured — saving basic entry for card '%s'", name
             )
+            card_id = card_registry.slugify(name)
+            card_data = {
+                "card_name": name,
+                "notes": "Basic entry — agent_id not configured for LLM research",
+            }
+            await hass.async_add_executor_job(card_registry.save_card, card_id, card_data)
+            await _refresh_registry_sensor()
+            _LOGGER.info("Successfully added basic card entry: %s", name)
             return
 
         prompt = (
