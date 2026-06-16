@@ -13,6 +13,15 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from .const import DOMAIN
 
 
+def _truncate_state(state: str) -> str:
+    """Truncate a sensor state to the Home Assistant 255 character limit.
+
+    The string is truncated to 252 characters and an ellipsis is added
+    so the final string length is 253 characters.
+    """
+    return state[:252] + "…" if len(state) > 252 else state
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -48,8 +57,7 @@ class CreditResponseSensor(SensorEntity, RestoreEntity):
         The sensor state is truncated to 255 chars (HA limit). The full
         response is stored in the ``full_response`` attribute.
         """
-        truncated = response_text[:252] + "…" if len(response_text) > 252 else response_text
-        self._attr_native_value = truncated
+        self._attr_native_value = _truncate_state(response_text)
         self._attr_extra_state_attributes = {"full_response": response_text}
         if query_description:
             self._attr_extra_state_attributes["last_query"] = query_description
@@ -59,10 +67,7 @@ class CreditResponseSensor(SensorEntity, RestoreEntity):
         """Restore last state on startup."""
         last_state = await self.async_get_last_state()
         if last_state is not None and last_state.state not in ("unknown", "unavailable", None):
-            truncated = (
-                last_state.state[:252] + "..." if len(last_state.state) > 252 else last_state.state
-            )
-            self._attr_native_value = truncated
+            self._attr_native_value = _truncate_state(last_state.state)
         if last_state is not None and last_state.attributes:
             self._attr_extra_state_attributes = dict(last_state.attributes)
         self.async_write_ha_state()
@@ -101,10 +106,7 @@ class CreditCardRegistrySensor(SensorEntity, RestoreEntity):
         """Restore last state on startup."""
         last_state = await self.async_get_last_state()
         if last_state is not None and last_state.state not in ("unknown", "unavailable", None):
-            truncated = (
-                last_state.state[:252] + "..." if len(last_state.state) > 252 else last_state.state
-            )
-            self._attr_native_value = truncated
+            self._attr_native_value = _truncate_state(last_state.state)
         if last_state is not None and last_state.attributes:
             self._attr_extra_state_attributes = dict(last_state.attributes)
         self.async_write_ha_state()
