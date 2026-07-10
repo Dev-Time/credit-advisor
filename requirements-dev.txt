@@ -1,7 +1,7 @@
 # Development dependencies for ha-credit-advisor
 # Pin versions for reproducible CI runs
 
-ruff==0.15.20
+ruff==0.15.21
 pre-commit==4.6.0
 pytest>=8.0
 pytest-aiohttp>=1.0
