@@ -2,7 +2,7 @@
 # Pin versions for reproducible CI runs
 
 ruff==0.15.22
-pre-commit==4.6.0
+pre-commit==4.6.1
 pytest>=8.0
 pytest-aiohttp>=1.0
 # pytest-homeassistant-custom-component — add when Phase 2 testing is set up
