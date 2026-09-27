@@ -21,7 +21,8 @@ Home Assistant custom component (`custom_components/credit_advisor/`) with:
 
 - **Card Registry** — YAML-based local storage for card definitions
 - **LLM Client** — `ai_task`-powered recommendation engine
-- **Sensors** — Benefit expiry, usage, and annual value state tracking
+- **Sensors** — LLM recommendation state and registered-card list (`sensor.card_recommendation`, `sensor.registered_cards`)
+- **Services** — `add_card`, `remove_card`, `query`, `list_cards`
 - **Lovelace Dashboard** — Native HA cards (input_text + markdown) for the query interface
 
 ## Development
