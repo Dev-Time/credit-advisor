@@ -10,7 +10,7 @@ Built for personal use first. Privacy-as-a-feature — all card metadata and ben
 
 | Phase | Status | What |
 |-------|--------|------|
-| **1. Query Engine** | 🔜 Planned | Ask "which card for this purchase?" via Lovelace dashboard. LLM-powered recommendation using locally stored card data. |
+| **1. Query Engine** | ✅ Shipped | Ask "which card for this purchase?" via Lovelace dashboard. LLM-powered recommendation using locally stored card data. |
 | **2. Benefit Tracking** | 📋 Next | Dashboard showing monthly/quarterly credit usage, expiry alerts, annual value tracking per card. |
 | **3. Transaction Hearing** | 🔮 Future | Android notification listener (Tasker) for real-time transaction awareness. |
 | **4. Offer Scraping** | 🔮 Future | Headless browser for offer discovery and auto-activation. |
