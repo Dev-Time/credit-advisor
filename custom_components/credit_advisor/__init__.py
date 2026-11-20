@@ -19,7 +19,19 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _extract_speech(data, depth=0):
-    """Recursively find any 'speech' text in the response tree."""
+    """Recursively find any 'speech' text in the response tree.
+
+    Prioritizes expected keys before falling back to recursive search.
+    """
+    if depth == 0 and isinstance(data, dict):
+        try:
+            return data["response"]["response"]["speech"]["plain"]["speech"]
+        except (KeyError, TypeError):
+            try:
+                return data["response"]["speech"]["plain"]["speech"]
+            except (KeyError, TypeError):
+                pass
+
     if depth > 10:
         return None
     if isinstance(data, dict):
@@ -156,14 +168,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             return
 
-        try:
-            response_text = result["response"]["response"]["speech"]["plain"]["speech"]
-        except (KeyError, TypeError):
-            try:
-                response_text = result["response"]["speech"]["plain"]["speech"]
-            except (KeyError, TypeError) as e:
-                _LOGGER.warning("Failed to extract response text for card '%s': %s", name, e)
-                return
+        response_text = _extract_speech(result)
+        if response_text is None:
+            _LOGGER.warning("Failed to extract response text for card '%s'", name)
+            return
 
         # Strip markdown code blocks if present
         response_text = response_text.strip()
@@ -278,23 +286,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.warning("Unexpected error calling conversation.process for query: %s", e)
             return {"recommendation": None, "error": str(e)}
 
-        try:
-            response_text = result["response"]["response"]["speech"]["plain"]["speech"]
-        except (KeyError, TypeError):
-            try:
-                response_text = result["response"]["speech"]["plain"]["speech"]
-            except (KeyError, TypeError):
-                # Last resort: look for any "speech" key in the response tree
-                response_text = _extract_speech(result)
-                if response_text is None:
-                    _LOGGER.warning(
-                        "Failed to extract response from query. Result keys: %s",
-                        list(result.keys()),
-                    )
-                    return {
-                        "recommendation": None,
-                        "error": "Could not extract speech from response",
-                    }
+        response_text = _extract_speech(result)
+        if response_text is None:
+            _LOGGER.warning(
+                "Failed to extract response from query. Result keys: %s",
+                list(result.keys()),
+            )
+            return {
+                "recommendation": None,
+                "error": "Could not extract speech from response",
+            }
 
         # Update sensor entity
         sensor = hass.data.get(DOMAIN, {}).get("sensor")
